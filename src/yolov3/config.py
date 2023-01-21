@@ -2,14 +2,14 @@
 import os
 
 basedir = os.path.abspath(os.path.dirname(__file__))
+srcdir = os.path.abspath(os.path.join(basedir, os.pardir))
+rootdir = os.path.abspath(os.path.join(srcdir, os.pardir))
+datadir = os.path.join(rootdir, 'data')
 
 
 class Config:
     # pylint: disable=too-few-public-methods
     """default config"""
-    # token
-    OPENAI_KEY = os.getenv("OPENAI_KEY", "")
-
     # logging
     LOG_LEVEL = "WARNING"
     LOG_LINE_FORMAT = "%(asctime)s %(levelname)-5s %(threadName)s: %(message)s"
@@ -21,7 +21,11 @@ class Config:
         ((30, 61), (62, 45), (59, 119)),
         ((116, 90), (156, 198), (373, 326)),
     )
-    V3IN_SHAPE = (416, 416, 3)
+    V3ANCHORSCALES = (13, 26, 52)
+    V3IN_WIDTH = 416
+
+    # data
+    SQLITE = os.path.join(datadir, "images.db")
 
 
 class TestConfig(Config):

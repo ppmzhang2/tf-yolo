@@ -56,4 +56,4 @@ lint-type:
 test:
 	PYTHONPATH=./src \
 	    pdm run pytest -s -v --cov=app --cov-config=pyproject.toml \
-	    > pytest-coverage.txt
+	    > coverage.txt

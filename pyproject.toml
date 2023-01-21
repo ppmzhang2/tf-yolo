@@ -14,7 +14,6 @@ dev = [
     "pytest>=7.2.1",
     "pytest-cov>=4.0.0",
     "setuptools-git-versioning>=1.13.1",
-    "pylint>=2.15.10",
 ]
 [build-system]
 requires = ["pdm-pep517"]
@@ -83,8 +82,12 @@ line_length = 79
 force_single_line = true
 
 [project.scripts]
-study = "study.cli:cli"
+yolov3 = "yolov3.cli:cli"
 
+[project.optional-dependencies]
+repl = [
+    "jupyter>=1.0.0",
+]
 [project]
 name = "tf-yolo"
 version = "0"
@@ -93,10 +96,14 @@ authors = [
     {name = "ZHANG Meng", email = "stall-breezes.0t@icloud.com"},
 ]
 dependencies = [
-    "tensorflow-macos>=2.10.0",
+    "tensorflow-macos>=2.11.0",
     "tensorflow-metal>=0.7.0",
+    "SQLAlchemy>=1.4.46",
+    "click>=8.1.3",
+    "opencv-python>=4.7.0.68",
+    "pillow>=9.4.0",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.8,<3.12"
 license = {text = "MIT"}
 readme = "README.md"
 classifiers = [
@@ -109,9 +116,61 @@ classifiers = [
 ]
 
 [project.urls]
-homepage = ""
+homepage = "https://github.com/ppmzhang2/tf-yolo"
 
-[project.optional-dependencies]
-ipy = [
-    "ipython>=8.7.0",
+[tool.ruff]
+# all but incompatible options: G, TID, TCH, PTH
+select = [
+    "E", "F", "B", "Q", "I", "C90", "N", "D", "UP", "YTT", "ANN", "S", "BLE",
+    "FBT", "A", "COM", "C4", "DTZ", "T10", "EM", "EXE", "ISC", "ICN", "INP",
+    "PIE", "T20", "PT", "Q", "RET", "SIM", "ARG", "ERA", "PD", "PGH", "PL",
+    "TRY", "RUF",
 ]
+ignore = [
+    "S101",  # assert-used
+    "INP001",  # implicit-namespace-package
+    "ANN101",  # missing-type-self
+    "ANN102",  # missing-type-cls
+    "ANN204",  # missing-return-type-special-method
+    "ERA001",  # commented-out-code
+    "ANN002",  # missing-type-args
+    "ANN003",  # missing-type-kwargs
+    "RET504",  # unnecessary-assign
+]
+show-source = true
+line-length = 79
+src = ["src"]
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+per-file-ignores = {}
+
+# Assume Python 3.10.
+target-version = "py310"
+
+[tool.ruff.pydocstyle]
+# Use Google-style docstrings.
+convention = "google"
+
+[tool.ruff.isort]
+force-single-line = true

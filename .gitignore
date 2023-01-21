@@ -14,8 +14,13 @@ __pycache__/
 .coverage
 .coverage.*
 coverage.xml
+coverage.txt
 
 .DS_Store
 
+# pdm
 __pypackages__/
 .pdm.toml
+
+# ide
+.idea/

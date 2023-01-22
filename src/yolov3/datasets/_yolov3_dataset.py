@@ -100,7 +100,8 @@ class Yolov3Dataset:
                                               _indices_measure):
                 scale = cfg.V3ANCHORSCALES[idx_scale]
                 x_raw, y_raw = row['x'] * scale, row['y'] * scale
-                i, j = int(x_raw), int(y_raw)  # decide cell
+                # decide cell here, this is easier than drawing grids
+                i, j = int(x_raw), int(y_raw)
                 x, y = x_raw - i, y_raw - j  # decide offset
                 w, h = row['w'] * scale, row['h'] * scale
                 # fill in

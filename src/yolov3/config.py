@@ -21,7 +21,7 @@ class Config:
         ((30, 61), (62, 45), (59, 119)),
         ((116, 90), (156, 198), (373, 326)),
     )
-    V3ANCHORSCALES = (13, 26, 52)
+    V3ANCHORSCALES = (52, 26, 13)
     V3IN_WIDTH = 416
 
     # data

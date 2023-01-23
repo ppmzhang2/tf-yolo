@@ -87,7 +87,7 @@ class Yolov3Dataset:
         """
         # TODO: random noise?
         seq_label = [
-            np.zeros((ANCHORS.shape[1], s, s, 6), dtype=np.float32)
+            np.zeros((s, s, ANCHORS.shape[1], 6), dtype=np.float32)
             for s in cfg.V3ANCHORSCALES
         ]
         seq_row = Dao.labels_by_img_id(img_id)
@@ -105,12 +105,12 @@ class Yolov3Dataset:
                 x, y = x_raw - i, y_raw - j  # decide offset
                 w, h = row['w'] * scale, row['h'] * scale
                 # fill in
-                seq_label[idx_scale][idx_measure, i, j, 0] = 1
-                seq_label[idx_scale][idx_measure, i, j, 1] = x
-                seq_label[idx_scale][idx_measure, i, j, 2] = y
-                seq_label[idx_scale][idx_measure, i, j, 3] = w
-                seq_label[idx_scale][idx_measure, i, j, 4] = h
-                seq_label[idx_scale][idx_measure, i, j, 5] = row['cateid']
+                seq_label[idx_scale][i, j, idx_measure, 0] = x
+                seq_label[idx_scale][i, j, idx_measure, 1] = y
+                seq_label[idx_scale][i, j, idx_measure, 2] = w
+                seq_label[idx_scale][i, j, idx_measure, 3] = h
+                seq_label[idx_scale][i, j, idx_measure, 4] = 1
+                seq_label[idx_scale][i, j, idx_measure, 5] = row['cateid']
 
         return tuple(seq_label)
 
@@ -143,6 +143,7 @@ class Yolov3Dataset:
 
             # conditions
             self.batch_count += 1
+            self.img_rowid += 1
             if self.batch_count >= self.batch_size:
                 images_ = np.stack(images)
                 labels_s_ = np.stack(labels_s)

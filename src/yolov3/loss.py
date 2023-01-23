@@ -4,6 +4,8 @@ import tensorflow as tf
 from . import cfg
 from .iou import iou_bbox
 
+N_CLASS = 80
+
 STRIDE_MAP = {scale: cfg.V3IN_WIDTH // scale for scale in cfg.V3ANCHORSCALES}
 
 # anchors measured in corresponding strides
@@ -53,7 +55,8 @@ def get_loss(pred, label, iou_threshold=0.3):
 
     label_xywh = label[..., 0:4]
     label_conf_pr = label[..., 4:5]
-    label_class_pr = label[..., 5:]
+    label_class = label[..., 5]
+    label_class_pr = tf.one_hot(tf.cast(label_class, dtype=tf.int32), N_CLASS)
 
     iou_score = tf.expand_dims(iou_bbox(pred_xywh, label_xywh), axis=-1)
     noobj_pr = tf.cast(iou_score < iou_threshold, tf.float32)

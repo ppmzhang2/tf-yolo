@@ -35,10 +35,11 @@ def grad(model, x, labels):
 
 def trainer(dataset, num_epochs: int = 2):
     model = model_factory()
-    optimizer = tf.keras.optimizers.Adam()
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
     for ep in range(num_epochs):
         epoch_loss_avg = tf.keras.metrics.Mean()
         for x, labels in dataset:
             loss, grads = grad(model, x, labels)
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
             epoch_loss_avg.update_state(loss)
+            print(f"avg loss: {epoch_loss_avg}; loss: {loss}")

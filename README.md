@@ -22,4 +22,6 @@ pdm run yolov3 load-coco-annot-csv \
     --box-csv="./data/coco_box_val2014.csv"
 # add base64 encoded image
 pdm run yolov3 update-img-data --img-folder=data/coco_val2014
+# create a single annotation / label table for YOLO training
+pdm run yolov3 create-yolo-labels
 ```

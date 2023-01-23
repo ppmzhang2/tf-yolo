@@ -10,7 +10,9 @@ import numpy as np
 
 from .. import cfg
 from .. import iou
-from ..db import Dao
+from ..dao import dao
+
+__all__ = ['Yolov3Dataset']
 
 # 3*3*2 tensor repreneting anchors of 3 different scales,
 # i.e. small, medium, large; and three different measures.
@@ -90,7 +92,7 @@ class Yolov3Dataset:
             np.zeros((s, s, ANCHORS.shape[1], 6), dtype=np.float32)
             for s in cfg.V3ANCHORSCALES
         ]
-        seq_row = Dao.labels_by_img_id(img_id)
+        seq_row = dao.labels_by_img_id(img_id)
         for row in seq_row:
             box = np.array([row['x'], row['y']], dtype=np.float32)
             scores = iou.iou_width_height(box, ANCHORS)
@@ -125,7 +127,7 @@ class Yolov3Dataset:
 
         images, labels_s, labels_m, labels_l = [], [], [], []
         while True:
-            row = Dao.lookup_image_rowid(self.img_rowid)
+            row = dao.lookup_image_rowid(self.img_rowid)
             if row is None:
                 raise StopIteration
 

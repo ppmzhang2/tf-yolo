@@ -31,7 +31,7 @@ update-lock:
 .PHONY: deploy-dev
 ## deploy dev environment
 deploy-dev:
-	pdm sync -G dev -G ipy --clean
+	pdm sync -G dev -G repl --clean
 
 .PHONY: format
 ## isort and yapf formatting

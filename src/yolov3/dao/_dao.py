@@ -6,19 +6,20 @@ from typing import Optional
 
 from sqlalchemy import Column
 from sqlalchemy import Table
+from sqlalchemy import create_engine
 from sqlalchemy import func
 from sqlalchemy.engine.row import LegacyRow
 from sqlalchemy.sql import select
 from sqlalchemy.sql import update
 
-from ._session import engine
+from .. import cfg
 from ._tables import boxes
 from ._tables import cates
 from ._tables import images
 
 LOGGER = logging.getLogger(__name__)
 
-__all__ = ['Dao']
+__all__ = ['dao']
 
 MAX_REC = 10000000
 
@@ -48,88 +49,105 @@ SELECT box.boxid
     ON box.imageid = img.imageid
 """
 
+_TABLES = (boxes, cates, images)
 
-class Dao:
 
-    @staticmethod
-    def exec(stmt: str, *args, **kwargs):
-        res = engine.execute(stmt, *args, **kwargs)
+class SingletonMeta(type):
+    """singleton meta-class"""
+    _instance = None
+
+    def __call__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(SingletonMeta, cls).__call__(*args, **kwargs)
+        return cls._instance
+
+
+class Dao(metaclass=SingletonMeta):
+
+    __slots__ = ['_engine']
+
+    def __init__(self):
+        self._engine = create_engine(f"sqlite:///{cfg.SQLITE}")
+
+    def create_all(self) -> None:
+        for table in reversed(_TABLES):
+            table.create(bind=self._engine, checkfirst=True)
+
+    def drop_all(self) -> None:
+        """drop all tables defined in `redshift.tables`
+        there's no native `DROP TABLE ... CASCADE ...` method and tables should
+        be dropped from the leaves of the dependency tree back to the root
+        """
+        for table in _TABLES:
+            table.drop(bind=self._engine, checkfirst=True)
+
+    def exec(self, stmt: str, *args, **kwargs):
+        res = self._engine.execute(stmt, *args, **kwargs)
         return res
 
-    @classmethod
-    def _count(cls, column: Column) -> int:
+    def _count(self, column: Column) -> int:
         stmt = select([func.count(column)])
-        res = cls.exec(stmt)
+        res = self.exec(stmt)
         return res.first()[0]
 
-    @classmethod
-    def count_box(cls) -> int:
-        return cls._count(boxes.c.boxid)
+    def count_box(self) -> int:
+        return self._count(boxes.c.boxid)
 
-    @classmethod
-    def count_cate(cls) -> int:
-        return cls._count(cates.c.cateid)
+    def count_cate(self) -> int:
+        return self._count(cates.c.cateid)
 
-    @classmethod
-    def count_image(cls) -> int:
-        return cls._count(images.c.imageid)
+    def count_image(self) -> int:
+        return self._count(images.c.imageid)
 
-    @classmethod
-    def update_image(cls, imgpath: str) -> int:
+    def update_image(self, imgpath: str) -> int:
         imgname = os.path.basename(imgpath)
         with open(imgpath, 'rb') as img:
             imgbytes = base64.b64encode(img.read())
         stmt = update(images).where(images.c.name == imgname).values(
             data=imgbytes)
-        res = cls.exec(stmt).rowcount
+        res = self.exec(stmt).rowcount
         LOGGER.debug(f"{res} row(s) updated")
         return res
 
-    @classmethod
-    def update_images(cls, imgfolder: str):
+    def update_images(self, imgfolder: str):
         sum = 0
         LOGGER.info("updating started ...")
         for imgname in os.listdir(imgfolder):
             imgpath = os.path.join(imgfolder, imgname)
             # checking if it is a file
             if os.path.isfile(imgpath):
-                cnt = cls.update_image(imgpath)
+                cnt = self.update_image(imgpath)
                 sum += cnt
             if sum > 0 and sum % 100 == 0:
                 LOGGER.info(f"    {sum} rows updated")
         LOGGER.info(f"{sum} row(s) updated")
         return sum
 
-    @classmethod
     def _lookup(
-        cls,
+        self,
         table: Table,
         column: Column,
         key: Any,
     ) -> Optional[LegacyRow]:
         stmt = select([table]).where(column == key)
-        res = cls.exec(stmt).first()
+        res = self.exec(stmt).first()
         return res
 
-    @classmethod
-    def lookup_image_rowid(cls, rowid: int) -> Optional[LegacyRow]:
+    def lookup_image_rowid(self, rowid: int) -> Optional[LegacyRow]:
         stmt = f"""
         SELECT *
           FROM {images.name}
          WHERE rowid = {rowid};
         """
-        return cls.exec(stmt).first()
+        return self.exec(stmt).first()
 
-    @classmethod
-    def lookup_image_id(cls, image_id: int):
-        return cls._lookup(images, images.c.imageid, image_id)
+    def lookup_image_id(self, image_id: int):
+        return self._lookup(images, images.c.imageid, image_id)
 
-    @classmethod
-    def lookup_image_name(cls, name: str):
-        return cls._lookup(images, images.c.name, name)
+    def lookup_image_name(self, name: str):
+        return self._lookup(images, images.c.name, name)
 
-    @classmethod
-    def recreate_yolo_label(cls):
+    def recreate_yolo_label(self):
         table = 'f_yolo_label'
         stmt_drop = f"""
         DROP TABLE IF EXISTS {table};
@@ -138,32 +156,32 @@ class Dao:
         CREATE TABLE {table} AS
         {FORMAT_QUERY};
         """
-        cls.exec(stmt_drop).rowcount
-        return cls.exec(stmt_create).rowcount
+        self.exec(stmt_drop).rowcount
+        return self.exec(stmt_create).rowcount
 
-    @classmethod
-    def labels_by_img_id(cls, image_id: int) -> list[LegacyRow]:
+    def labels_by_img_id(self, image_id: int) -> list[LegacyRow]:
         stmt = f"""
         SELECT *
           FROM f_yolo_label
          WHERE imageid = {image_id};
         """
-        return cls.exec(stmt).all()
+        return self.exec(stmt).all()
 
-    @classmethod
-    def labels_by_img_name(cls, image_name: str) -> list[LegacyRow]:
+    def labels_by_img_name(self, image_name: str) -> list[LegacyRow]:
         stmt = f"""
         SELECT *
           FROM f_yolo_label
          WHERE image_name = '{image_name}';
         """
-        return cls.exec(stmt).all()
+        return self.exec(stmt).all()
 
-    @classmethod
-    def all_labels(cls, limit: int = MAX_REC) -> list[LegacyRow]:
+    def all_labels(self, limit: int = MAX_REC) -> list[LegacyRow]:
         stmt = f"""
         SELECT *
           FROM f_yolo_label
          LIMIT {limit};
         """
-        return cls.exec(stmt).all()
+        return self.exec(stmt).all()
+
+
+dao = Dao()

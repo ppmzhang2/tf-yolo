@@ -18,5 +18,9 @@ coverage.txt
 
 .DS_Store
 
+# pdm
 __pypackages__/
 .pdm.toml
+
+# ide
+.idea/

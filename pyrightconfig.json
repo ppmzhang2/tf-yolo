@@ -1,5 +1,6 @@
 {
     "pythonVersion": "3.10",
+    "diagnosticMode": "openFilesOnly",
     "exclude": ["**/node_modules", "**/__pycache__", "**/__pypackages__"],
     "ignore": ["**/node_modules", "**/__pycache__", "**/__pypackages__"],
     "extraPaths": ["./__pypackages__/3.10/lib", "./src"]

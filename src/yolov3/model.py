@@ -20,6 +20,7 @@ def cnn_block(
     bn: bool = True,
 ) -> TTensor:
     """Conv2D block
+
     Args:
         x (TTensor): input tensor
         filters (int): number of output channels
@@ -86,8 +87,8 @@ def dn53_block(x: TTensor) -> Tuple[TTensor, TTensor, TTensor]:
     Returns:
         Tuple[TTensor, TTensor, TTensor]: two intermediate results and one
             final result
-            1. intermediate one: 256 out channels, after the first eight residual
-               block
+            1. intermediate one: 256 out channels, after the first eight
+               residual block
             2. intermediate two: 512 out channels, after the second eight
                residual blocks
             3. final result: 1024 out channels

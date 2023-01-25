@@ -9,3 +9,5 @@ if env == 'prod':
     cfg = config.Config
 else:
     cfg = config.TestConfig
+
+cfg.configure_logger(__name__)

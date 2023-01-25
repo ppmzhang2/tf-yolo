@@ -7,6 +7,8 @@ from tensorflow.python.framework.ops import Tensor
 from tensorflow.python.framework.sparse_tensor import SparseTensor
 from tensorflow.python.ops.ragged.ragged_tensor import RaggedTensor
 
+from . import cfg
+
 ALPHA = 0.1
 
 TTensor = Union[Tensor, SparseTensor, RaggedTensor, EagerTensor]
@@ -249,3 +251,10 @@ def netv3(x: TTensor, n_class: int = 80) -> Tuple[TTensor, TTensor, TTensor]:
     box_s = cnn_block(x_s, pred_channels, 1, bn=False)
 
     return tuple(map(reshape, (box_s, box_m, box_l)))
+
+
+def model_factory() -> tf.keras.Model:
+    x = tf.keras.layers.Input(
+        [cfg.V3IN_WIDTH, cfg.V3IN_WIDTH, cfg.V3INCHANNEL])
+    seq_out = netv3(x)
+    return tf.keras.Model(x, seq_out)

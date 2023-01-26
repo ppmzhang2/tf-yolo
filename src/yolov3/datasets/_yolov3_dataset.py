@@ -42,7 +42,7 @@ IMG_ROWID_INIT = 1
 
 class Yolov3Dataset:
 
-    def __init__(self, batch_size: int = 4):
+    def __init__(self, batch_size: int = 2):
         self.batch_size = batch_size
         self.batch_count = BATCH_COUNT_INIT  # as a counter
         self.img_rowid = IMG_ROWID_INIT  # image row ID to stat
@@ -101,10 +101,9 @@ class Yolov3Dataset:
             for idx_scale, idx_measure in zip(_indices_scale,
                                               _indices_measure):
                 scale = cfg.V3ANCHORSCALES[idx_scale]
-                x_raw, y_raw = row['x'] * scale, row['y'] * scale
+                x, y = row['x'] * scale, row['y'] * scale
                 # decide cell here, this is easier than drawing grids
-                i, j = int(x_raw), int(y_raw)
-                x, y = x_raw - i, y_raw - j  # decide offset
+                i, j = int(x), int(y)
                 w, h = row['w'] * scale, row['h'] * scale
                 # fill in
                 seq_label[idx_scale][i, j, idx_measure, 0] = x

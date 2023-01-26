@@ -1,6 +1,6 @@
 import numpy as np
 
-from yolov3.iou import iou_bbox
+from yolov3.box import iou_bbox
 
 bbox1 = (2.5, 3.4, 5.0, 6.0)
 bbox2 = (2.6, 4.3, 6.0, 4.0)

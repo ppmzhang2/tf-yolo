@@ -47,15 +47,16 @@ class Config:
             },
         })
 
-    # YOLO
-    V3ANCHORS = (
+    # YOLO constants
+    # sequences all in the same order: small, medium, large
+    V3_ANCHORS = (
         ((10, 13), (16, 30), (33, 23)),
         ((30, 61), (62, 45), (59, 119)),
         ((116, 90), (156, 198), (373, 326)),
     )
-    V3ANCHORSCALES = (52, 26, 13)
-    V3IN_WIDTH = 416
-    V3INCHANNEL = 3
+    V3_GRIDSIZE = (52, 26, 13)
+    V3_INRESOLUT = 416  # input resolution: V3_INRESOLUT by V3_INRESOLUT
+    V3_INCHANNELS = 3
 
     # data
     SQLITE = os.path.join(datadir, "images.db")

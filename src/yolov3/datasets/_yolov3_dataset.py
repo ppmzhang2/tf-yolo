@@ -8,9 +8,9 @@ from typing import Tuple
 import cv2
 import numpy as np
 
+from .. import box
 from .. import cfg
-from .. import iou
-from ..dao import dao
+from .. import db
 
 __all__ = ['Yolov3Dataset']
 
@@ -31,7 +31,9 @@ __all__ = ['Yolov3Dataset']
 #   [[0.27884615, 0.21634615],
 #    [0.375     , 0.47596154],
 #    [0.89663462, 0.78365385]]]
-ANCHORS = np.array(cfg.V3ANCHORS, dtype=np.float32) / cfg.V3IN_WIDTH
+ANCHORS = np.array(cfg.V3_ANCHORS, dtype=np.float32) / cfg.V3_INRESOLUT
+
+STRIDES = [int(cfg.V3_INRESOLUT // n) for n in cfg.V3_GRIDSIZE]
 
 T_SEQ_LABEL = Tuple[np.ndarray, np.ndarray, np.ndarray]
 
@@ -89,28 +91,29 @@ class Yolov3Dataset:
         """
         # TODO: random noise?
         seq_label = [
-            np.zeros((s, s, ANCHORS.shape[1], 6), dtype=np.float32)
-            for s in cfg.V3ANCHORSCALES
+            np.zeros((size, size, ANCHORS.shape[1], 6), dtype=np.float32)
+            for size in cfg.V3_GRIDSIZE
         ]
-        seq_row = dao.labels_by_img_id(img_id)
+        seq_row = db.dao.labels_by_img_id(img_id)
         for row in seq_row:
-            box = np.array([row['x'], row['y']], dtype=np.float32)
-            scores = iou.iou_width_height(box, ANCHORS)
+            box_wh = np.array([row['x'], row['y']], dtype=np.float32)
+            scores = box.iou_width_height(box_wh, ANCHORS)
             ranks = np.argsort(-scores)  # desending
             _indices_scale, _indices_measure = np.where(ranks == 0)
+            # 0: small, 1: medium, 2: large
             for idx_scale, idx_measure in zip(_indices_scale,
                                               _indices_measure):
-                scale = cfg.V3ANCHORSCALES[idx_scale]
-                x, y = row['x'] * scale, row['y'] * scale
+                stride = STRIDES[idx_scale]
+                x, y = row['x'] * cfg.V3_INRESOLUT, row['y'] * cfg.V3_INRESOLUT
                 # decide cell here, this is easier than drawing grids
-                i, j = int(x), int(y)
-                w, h = row['w'] * scale, row['h'] * scale
+                i, j = int(x // stride), int(y // stride)
+                w, h = row['w'] * cfg.V3_INRESOLUT, row['h'] * cfg.V3_INRESOLUT
                 # fill in
-                seq_label[idx_scale][i, j, idx_measure, 0] = x
-                seq_label[idx_scale][i, j, idx_measure, 1] = y
-                seq_label[idx_scale][i, j, idx_measure, 2] = w
-                seq_label[idx_scale][i, j, idx_measure, 3] = h
-                seq_label[idx_scale][i, j, idx_measure, 4] = 1
+                seq_label[idx_scale][i, j, idx_measure, 0] = 1
+                seq_label[idx_scale][i, j, idx_measure, 1] = x
+                seq_label[idx_scale][i, j, idx_measure, 2] = y
+                seq_label[idx_scale][i, j, idx_measure, 3] = w
+                seq_label[idx_scale][i, j, idx_measure, 4] = h
                 seq_label[idx_scale][i, j, idx_measure, 5] = row['cateid']
 
         return tuple(seq_label)
@@ -126,14 +129,14 @@ class Yolov3Dataset:
 
         images, labels_s, labels_m, labels_l = [], [], [], []
         while True:
-            row = dao.lookup_image_rowid(self.img_rowid)
+            row = db.dao.lookup_image_rowid(self.img_rowid)
             if row is None:
                 raise StopIteration
 
             rgb = self.imgb64_to_rgb(row['data'])
             rgb_new = cv2.resize(
                 rgb,
-                (cfg.V3IN_WIDTH, cfg.V3IN_WIDTH),
+                (cfg.V3_INRESOLUT, cfg.V3_INRESOLUT),
                 interpolation=cv2.INTER_AREA,
             )
             label_s, label_m, label_l = self.get_label_by_id(row['imageid'])

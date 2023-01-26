@@ -120,7 +120,27 @@ classifiers = [
 homepage = "https://github.com/ppmzhang2/tf-yolo"
 
 [tool.ruff]
+# all but incompatible options: G, TID, TCH, PTH
+select = [
+    "E", "F", "B", "Q", "I", "C90", "N", "D", "UP", "YTT", "ANN", "S", "BLE",
+    "FBT", "A", "COM", "C4", "DTZ", "T10", "EM", "EXE", "ISC", "ICN", "INP",
+    "PIE", "T20", "PT", "Q", "RET", "SIM", "ARG", "ERA", "PD", "PGH", "PL",
+    "TRY", "RUF",
+]
+ignore = [
+    "S101",  # assert-used
+    "INP001",  # implicit-namespace-package
+    "ANN101",  # missing-type-self
+    "ANN102",  # missing-type-cls
+    "ANN204",  # missing-return-type-special-method
+    "ERA001",  # commented-out-code
+    "ANN002",  # missing-type-args
+    "ANN003",  # missing-type-kwargs
+    "RET504",  # unnecessary-assign
+]
+show-source = true
 line-length = 79
+src = ["src"]
 
 # Exclude a variety of commonly ignored directories.
 exclude = [
@@ -152,3 +172,6 @@ target-version = "py310"
 [tool.ruff.pydocstyle]
 # Use Google-style docstrings.
 convention = "google"
+
+[tool.ruff.isort]
+force-single-line = true

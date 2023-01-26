@@ -1,4 +1,6 @@
-"""all commands here"""
+"""All commands here."""
+from typing import NoReturn
+
 import click
 
 from .serv import coco_annot_to_csv
@@ -12,8 +14,8 @@ from .serv import update_img_data
 
 
 @click.group()
-def cli():
-    """all clicks here"""
+def cli() -> NoReturn:
+    """All clicks here."""
 
 
 cli.add_command(coco_annot_to_csv)

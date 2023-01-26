@@ -1,11 +1,14 @@
+"""Training and loss."""
 import logging
 from collections.abc import Iterable
+from typing import NoReturn
 
 import numpy as np
 import tensorflow as tf
 
-from . import cfg
 from . import box
+from . import cfg
+from .types import Tensor
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,9 +27,10 @@ ANCHORS_MAP = {
 }
 
 
-def grid_coord(batch_size: int, grid_size: int, n_anchor: int):
-    """top-left coordinates of each grid cells, created usually out of a output
-    tensor
+def grid_coord(batch_size: int, grid_size: int, n_anchor: int) -> Tensor:
+    """Top-left coordinates of each grid cells.
+
+    created usually out of a output tensor
 
     Args:
         batch_size (int): batch size
@@ -43,8 +47,8 @@ def grid_coord(batch_size: int, grid_size: int, n_anchor: int):
     return tf.stack([xss, yss], axis=-1)
 
 
-def pred2act(y):
-    """transform prediction to actual size"""
+def pred2act(y: Tensor) -> Tensor:
+    """Transform prediction to actual size."""
     batch_size = y.shape[0]
     grid_size = y.shape[1]
     n_anchor = y.shape[3]
@@ -66,12 +70,17 @@ def pred2act(y):
     )
 
 
-def get_loss(pred, label, iou_threshold=0.3):
-    """
+def get_loss(
+    pred: Tensor,
+    label: Tensor,
+    iou_threshold: float = 0.3,
+) -> Tensor:
+    """Calculate loss.
+
     TODO: add lambda coef
     """
 
-    def calc(loss):
+    def calc(loss: Tensor) -> Tensor:
         return tf.reduce_mean(tf.reduce_sum(loss, axis=[1, 2, 3, 4]))
 
     pred = pred2act(pred)
@@ -109,11 +118,22 @@ def get_loss(pred, label, iou_threshold=0.3):
     return calc(loss_iou) + calc(loss_conf) + calc(loss_class)
 
 
-def grad(model, x, labels):
-    """
+def grad(
+    model: tf.keras.Model,
+    x: Tensor,
+    labels: Iterable[Tensor],
+) -> tuple[float, Tensor]:
+    """Get loss and gradients.
+
     TODO: update learning rate
+
     Args:
+        model (tf.keras.Model): model for training
+        x (Tensor): input features
         labels: (label_s, label_m, label_l)
+
+    Return:
+        tuple[float, Tensor]: total loss and gradient tensor
     """
     with tf.GradientTape() as tape:
         seq_pred = model(x)
@@ -129,12 +149,15 @@ def grad(model, x, labels):
     return loss_sum, gradients
 
 
-def trainer(model: tf.keras.Model, dataset: Iterable, n_epoch: int):
+def trainer(model: tf.keras.Model, dataset: Iterable,
+            n_epoch: int) -> NoReturn:
+    """Model training loop."""
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
-    for ep in range(n_epoch):
+    for _ in range(n_epoch):
         epoch_loss_avg = tf.keras.metrics.Mean()
         for x, labels in dataset:
             loss, grads = grad(model, x, labels)
-            optimizer.apply_gradients(zip(grads, model.trainable_variables))
+            optimizer.apply_gradients(
+                zip(grads, model.trainable_variables, strict=True))
             epoch_loss_avg.update_state(loss)
             LOGGER.info(f"avg loss: {epoch_loss_avg}; loss: {loss}")

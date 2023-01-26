@@ -1,9 +1,8 @@
-"""dataset for YOLOv3
+"""dataset for YOLOv3.
 
 TODO: data augmentation
 """
 import base64
-from typing import Tuple
 
 import cv2
 import numpy as np
@@ -12,7 +11,7 @@ from .. import box
 from .. import cfg
 from .. import db
 
-__all__ = ['Yolov3Dataset']
+__all__ = ["Yolov3Dataset"]
 
 # 3*3*2 tensor repreneting anchors of 3 different scales,
 # i.e. small, medium, large; and three different measures.
@@ -35,7 +34,7 @@ ANCHORS = np.array(cfg.V3_ANCHORS, dtype=np.float32) / cfg.V3_INRESOLUT
 
 STRIDES = [int(cfg.V3_INRESOLUT // n) for n in cfg.V3_GRIDSIZE]
 
-T_SEQ_LABEL = Tuple[np.ndarray, np.ndarray, np.ndarray]
+T_SEQ_LABEL = tuple[np.ndarray, np.ndarray, np.ndarray]
 
 N_IMG = 40504
 BATCH_COUNT_INIT = 0
@@ -66,12 +65,13 @@ class Yolov3Dataset:
 
     @staticmethod
     def get_label_by_id(img_id: int) -> T_SEQ_LABEL:
-        """
-        this method assumes that every ground truth box has a UNIQUE
+        """Get one label by ID.
+
+        This method assumes that every ground truth box has a UNIQUE
         (center-cell, anchor scale, anchor measure) combination, for otherwise
         they will overwrite each other
 
-        how to decide which scale and measure:
+        How to decide which scale and measure:
             criteria: IOU (only of width and height)
             by calculating the IOU between the (3, 3, 2) anchors and one box of
             shape (2, ), e.g. [0.075, 0.075], the result is (3, 3) tensor:
@@ -96,25 +96,26 @@ class Yolov3Dataset:
         ]
         seq_row = db.dao.labels_by_img_id(img_id)
         for row in seq_row:
-            box_wh = np.array([row['x'], row['y']], dtype=np.float32)
+            box_wh = np.array([row["x"], row["y"]], dtype=np.float32)
             scores = box.iou_width_height(box_wh, ANCHORS)
             ranks = np.argsort(-scores)  # desending
             _indices_scale, _indices_measure = np.where(ranks == 0)
             # 0: small, 1: medium, 2: large
             for idx_scale, idx_measure in zip(_indices_scale,
-                                              _indices_measure):
+                                              _indices_measure,
+                                              strict=True):
                 stride = STRIDES[idx_scale]
-                x, y = row['x'] * cfg.V3_INRESOLUT, row['y'] * cfg.V3_INRESOLUT
+                x, y = row["x"] * cfg.V3_INRESOLUT, row["y"] * cfg.V3_INRESOLUT
                 # decide cell here, this is easier than drawing grids
                 i, j = int(x // stride), int(y // stride)
-                w, h = row['w'] * cfg.V3_INRESOLUT, row['h'] * cfg.V3_INRESOLUT
+                w, h = row["w"] * cfg.V3_INRESOLUT, row["h"] * cfg.V3_INRESOLUT
                 # fill in
                 seq_label[idx_scale][i, j, idx_measure, 0] = 1
                 seq_label[idx_scale][i, j, idx_measure, 1] = x
                 seq_label[idx_scale][i, j, idx_measure, 2] = y
                 seq_label[idx_scale][i, j, idx_measure, 3] = w
                 seq_label[idx_scale][i, j, idx_measure, 4] = h
-                seq_label[idx_scale][i, j, idx_measure, 5] = row['cateid']
+                seq_label[idx_scale][i, j, idx_measure, 5] = row["cateid"]
 
         return tuple(seq_label)
 
@@ -133,13 +134,13 @@ class Yolov3Dataset:
             if row is None:
                 raise StopIteration
 
-            rgb = self.imgb64_to_rgb(row['data'])
+            rgb = self.imgb64_to_rgb(row["data"])
             rgb_new = cv2.resize(
                 rgb,
                 (cfg.V3_INRESOLUT, cfg.V3_INRESOLUT),
                 interpolation=cv2.INTER_AREA,
             )
-            label_s, label_m, label_l = self.get_label_by_id(row['imageid'])
+            label_s, label_m, label_l = self.get_label_by_id(row["imageid"])
             images += [rgb_new]
             labels_s += [label_s]
             labels_m += [label_m]

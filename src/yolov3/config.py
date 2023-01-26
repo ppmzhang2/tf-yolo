@@ -1,26 +1,28 @@
-"""project config"""
+"""Project Configuration."""
 import os
 import sys
 from logging.config import dictConfig
+from typing import NoReturn
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 srcdir = os.path.abspath(os.path.join(basedir, os.pardir))
 rootdir = os.path.abspath(os.path.join(srcdir, os.pardir))
-datadir = os.path.join(rootdir, 'data')
-modeldir = os.path.join(rootdir, 'model_config')
+datadir = os.path.join(rootdir, "data")
+modeldir = os.path.join(rootdir, "model_config")
 
 
 class Config:
     # pylint: disable=too-few-public-methods
-    """default config"""
+    """Provide default Configuration."""
+
     # logging
     LOG_LEVEL = "INFO"
     LOG_LINE_FORMAT = "%(asctime)s %(levelname)-5s %(threadName)s: %(message)s"
     LOG_DATETIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 
     @classmethod
-    def configure_logger(cls, root_module_name):
-        """configure logging"""
+    def configure_logger(cls, root_module_name: str) -> NoReturn:
+        """Configure logging."""
         dictConfig({
             "version": 1,
             "disable_existing_loggers": False,
@@ -57,6 +59,7 @@ class Config:
     V3_GRIDSIZE = (52, 26, 13)
     V3_INRESOLUT = 416  # input resolution: V3_INRESOLUT by V3_INRESOLUT
     V3_INCHANNELS = 3
+    EPSILON = 1e-3  # avoid 0/0
 
     # data
     SQLITE = os.path.join(datadir, "images.db")
@@ -68,5 +71,5 @@ class Config:
 
 class TestConfig(Config):
     # pylint: disable=too-few-public-methods
-    """testing config"""
+    """Provide Testing Configuration."""
     LOG_LEVEL = "DEBUG"

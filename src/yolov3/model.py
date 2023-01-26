@@ -255,6 +255,6 @@ def netv3(x: TTensor, n_class: int = 80) -> Tuple[TTensor, TTensor, TTensor]:
 
 def model_factory() -> tf.keras.Model:
     x = tf.keras.layers.Input(
-        [cfg.V3IN_WIDTH, cfg.V3IN_WIDTH, cfg.V3INCHANNEL])
+        [cfg.V3_INRESOLUT, cfg.V3_INRESOLUT, cfg.V3_INCHANNELS])
     seq_out = netv3(x)
     return tf.keras.Model(x, seq_out)

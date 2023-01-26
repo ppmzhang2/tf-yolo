@@ -5,22 +5,22 @@ import numpy as np
 import tensorflow as tf
 
 from . import cfg
-from .iou import iou_bbox
+from . import box
 
 LOGGER = logging.getLogger(__name__)
 
 N_CLASS = 80
 
-STRIDE_MAP = {scale: cfg.V3IN_WIDTH // scale for scale in cfg.V3ANCHORSCALES}
+STRIDE_MAP = {scale: cfg.V3_INRESOLUT // scale for scale in cfg.V3_GRIDSIZE}
 
 # anchors measured in corresponding strides
-ANCHORS_IN_STRIDE = (np.array(cfg.V3ANCHORS).T /
+ANCHORS_IN_STRIDE = (np.array(cfg.V3_ANCHORS).T /
                      np.array(sorted(STRIDE_MAP.values()))).T
 
 # map from grid size to anchors measured in stride
 ANCHORS_MAP = {
     scale: ANCHORS_IN_STRIDE[i]
-    for i, scale in enumerate(cfg.V3ANCHORSCALES)
+    for i, scale in enumerate(cfg.V3_GRIDSIZE)
 }
 
 
@@ -80,12 +80,12 @@ def get_loss(pred, label, iou_threshold=0.3):
     pred_conf_lg = pred[..., 4:5]
     pred_class_lg = pred[..., 6:]
 
-    label_xywh = label[..., 0:4]
-    label_conf_pr = label[..., 4:5]
+    label_conf_pr = label[..., 0:1]
+    label_xywh = label[..., 1:5]
     label_class = label[..., 5]
     label_class_pr = tf.one_hot(tf.cast(label_class, dtype=tf.int32), N_CLASS)
 
-    iou_score = tf.expand_dims(iou_bbox(pred_xywh, label_xywh), axis=-1)
+    iou_score = tf.expand_dims(box.iou_bbox(pred_xywh, label_xywh), axis=-1)
     noobj_pr = tf.cast(iou_score < iou_threshold, tf.float32)
     loss_iou = tf.multiply(label_conf_pr, tf.subtract(1, iou_score))
     loss_conf = tf.multiply(

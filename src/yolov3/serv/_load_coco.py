@@ -6,7 +6,7 @@ import click
 
 from .. import cfg
 from ..datasets import CocoAnnotation
-from ..dao import dao
+from .. import db
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,9 +52,9 @@ def load_coco_annot_csv(imgtag_csv: str, cate_csv: str, box_csv: str):
 @click.command()
 @click.option("--img-folder", type=click.STRING, required=True)
 def update_img_data(img_folder: str):
-    dao.update_images(img_folder)
+    db.dao.update_images(img_folder)
 
 
 @click.command()
 def create_yolo_labels():
-    dao.recreate_yolo_label()
+    db.dao.recreate_yolo_label()

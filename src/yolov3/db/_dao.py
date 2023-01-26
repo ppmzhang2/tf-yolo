@@ -23,8 +23,8 @@ __all__ = ['dao']
 
 MAX_REC = 10000000
 
-# format COCO bbox as a relative representation
-# COCO bbox format:
+# format COCO box as a relative representation
+# COCO box format:
 #   - bbox1, bbox2: the upper-left coordinates of the bounding box
 #   - bbox3, bbox3: the dimensions of your bounding box
 # new format:
@@ -182,6 +182,14 @@ class Dao(metaclass=SingletonMeta):
          LIMIT {limit};
         """
         return self.exec(stmt).all()
+
+    def categories(self) -> dict[int, str]:
+        stmt = f"""
+        SELECT *
+          FROM {cates};
+        """
+        rows = self.exec(stmt).all()
+        return {r[cates.c.cateid.name]: r[cates.c.name.name] for r in rows}
 
 
 dao = Dao()

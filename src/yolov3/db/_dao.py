@@ -6,9 +6,10 @@ from sqlalchemy import Column
 from sqlalchemy import Table
 from sqlalchemy import create_engine
 from sqlalchemy import func
-from sqlalchemy.engine.cursor import LegacyCursorResult
-from sqlalchemy.engine.row import LegacyRow
+from sqlalchemy.engine.cursor import CursorResult
+from sqlalchemy.engine.row import Row
 from sqlalchemy.sql import select
+from sqlalchemy.sql import text
 from sqlalchemy.sql import update
 
 from .. import cfg
@@ -81,11 +82,13 @@ class Dao(metaclass=SingletonMeta):
         for table in _TABLES:
             table.drop(bind=self._engine, checkfirst=True)
 
-    def _exec(self, stmt: str, *args, **kwargs) -> LegacyCursorResult:
-        return self._engine.execute(stmt, *args, **kwargs)
+    def _exec(self, stmt: str, *args, **kwargs) -> CursorResult:
+        with self._engine.begin() as conn:
+            res = conn.execute(stmt, *args, **kwargs)
+        return res
 
     def _count(self, column: Column) -> int:
-        stmt = select([func.count(column)])
+        stmt = select(func.count(column))
         res = self._exec(stmt)
         return res.first()[0]
 
@@ -105,7 +108,6 @@ class Dao(metaclass=SingletonMeta):
         stmt = update(images).where(images.c.name == imgname).values(
             data=imgbytes)
         res = self._exec(stmt).rowcount
-        LOGGER.debug(f"{res} row(s) updated")
         return res
 
     def update_images(self, imgfolder: str) -> int:
@@ -127,67 +129,46 @@ class Dao(metaclass=SingletonMeta):
         table: Table,
         column: Column,
         key: str | int | float,
-    ) -> LegacyRow | None:
-        stmt = select([table]).where(column == key)
+    ) -> Row | None:
+        stmt = select(table).where(column == key)
         return self._exec(stmt).first()
 
-    def lookup_image_rowid(self, rowid: int) -> LegacyRow | None:
-        stmt = f"""
-        SELECT *
-          FROM {images.name}
-         WHERE rowid = {rowid};
-        """
+    def lookup_image_rowid(self, rowid: int) -> Row | None:
+        stmt = select(images).where(text(f"rowid = {rowid}"))
         return self._exec(stmt).first()
 
-    def lookup_image_id(self, image_id: int) -> LegacyRow | None:
+    def lookup_image_id(self, image_id: int) -> Row | None:
         return self._lookup(images, images.c.imageid, image_id)
 
-    def lookup_image_name(self, name: str) -> LegacyRow | None:
+    def lookup_image_name(self, name: str) -> Row | None:
         return self._lookup(images, images.c.name, name)
 
     def recreate_yolo_label(self) -> int:
         table = "f_yolo_label"
-        stmt_drop = f"""
-        DROP TABLE IF EXISTS {table};
-        """
-        stmt_create = f"""
-        CREATE TABLE {table} AS
-        {FORMAT_QUERY};
-        """
+        stmt_drop = text(f"DROP TABLE IF EXISTS {table};")
+        stmt_create = text(f"CREATE TABLE {table} AS {FORMAT_QUERY};")
         self._exec(stmt_drop).rowcount
         return self._exec(stmt_create).rowcount
 
-    def labels_by_img_id(self, image_id: int) -> list[LegacyRow]:
-        stmt = f"""
-        SELECT *
-          FROM f_yolo_label
-         WHERE imageid = {image_id};
-        """
+    def labels_by_img_id(self, image_id: int) -> list[Row]:
+        stmt = text("SELECT * FROM f_yolo_label "
+                    f"WHERE imageid = {image_id};")
         return self._exec(stmt).all()
 
-    def labels_by_img_name(self, image_name: str) -> list[LegacyRow]:
-        stmt = f"""
-        SELECT *
-          FROM f_yolo_label
-         WHERE image_name = '{image_name}';
-        """
+    def labels_by_img_name(self, image_name: str) -> list[Row]:
+        stmt = text("SELECT * FROM f_yolo_label "
+                    f"WHERE image_name = '{image_name}';")
         return self._exec(stmt).all()
 
-    def all_labels(self, limit: int = MAX_REC) -> list[LegacyRow]:
-        stmt = f"""
-        SELECT *
-          FROM f_yolo_label
-         LIMIT {limit};
-        """
+    def all_labels(self, limit: int = MAX_REC) -> list[Row]:
+        stmt = text("SELECT * FROM f_yolo_label "
+                    f"LIMIT {limit};")
         return self._exec(stmt).all()
 
     def categories(self) -> dict[int, str]:
-        stmt = f"""
-        SELECT *
-          FROM {cates};
-        """
+        stmt = select(cates)
         rows = self._exec(stmt).all()
-        return {r[cates.c.cateid.name]: r[cates.c.name.name] for r in rows}
+        return {r.cateid: r.name for r in rows}
 
 
 dao = Dao()

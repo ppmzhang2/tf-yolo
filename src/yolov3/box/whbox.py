@@ -1,12 +1,13 @@
+"""Manipulate width-height boxes."""
 import numpy as np
 
 from .. import cfg
 from ..types import TensorArr
 
-__all__ = ["iou_width_height"]
+__all__ = ["iou"]
 
 
-def iou_width_height(whs1: TensorArr, whs2: TensorArr) -> TensorArr:
+def iou(whs1: TensorArr, whs2: TensorArr) -> TensorArr:
     """IoU calculated without x and y, by aligning boxes along two edges.
 
     Args:

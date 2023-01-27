@@ -1,4 +1,5 @@
-"""tables
+"""Tables.
+
 P.S.
 
 without explicitly adding primary key tag
@@ -16,39 +17,39 @@ from sqlalchemy import Table
 metadata = MetaData()
 
 images = Table(
-    'f_image',
+    "f_image",
     metadata,
-    Column('imageid', Integer, index=True),
-    Column('name', TEXT, index=True, unique=True),
-    Column('height', INTEGER),
-    Column('width', INTEGER),
-    Column('url', TEXT),
-    Column('data', TEXT),
+    Column("imageid", Integer, index=True),
+    Column("name", TEXT, index=True, unique=True),
+    Column("height", INTEGER),
+    Column("width", INTEGER),
+    Column("url", TEXT),
+    Column("data", TEXT),
 )
 
 cates = Table(
-    'd_cate',
+    "d_cate",
     metadata,
-    Column('cateid', Integer, index=True),
-    Column('name', TEXT),
+    Column("cateid", Integer, index=True),
+    Column("name", TEXT),
 )
 
 boxes = Table(
-    'f_box',
+    "f_box",
     metadata,
-    Column('boxid', Integer, index=True),
+    Column("boxid", Integer, index=True),
     Column(
-        'imageid',
+        "imageid",
         Integer,
-        ForeignKey('f_image.imageid', onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKey("f_image.imageid", onupdate="CASCADE", ondelete="CASCADE"),
     ),
     Column(
-        'cateid',
+        "cateid",
         Integer,
-        ForeignKey('d_cate.cateid', onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKey("d_cate.cateid", onupdate="CASCADE", ondelete="CASCADE"),
     ),
-    Column('bbox1', REAL),
-    Column('bbox2', REAL),
-    Column('bbox3', REAL),
-    Column('bbox4', REAL),
+    Column("bbox1", REAL),
+    Column("bbox2", REAL),
+    Column("bbox3", REAL),
+    Column("bbox4", REAL),
 )

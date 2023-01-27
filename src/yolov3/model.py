@@ -1,30 +1,25 @@
-from typing import Tuple
-from typing import Union
-
+"""Models."""
 import tensorflow as tf
-from tensorflow.python.framework.ops import EagerTensor
-from tensorflow.python.framework.ops import Tensor
-from tensorflow.python.framework.sparse_tensor import SparseTensor
-from tensorflow.python.ops.ragged.ragged_tensor import RaggedTensor
 
 from . import cfg
+from .types import Tensor
+from .types import TensorArr
 
 ALPHA = 0.1
 
-TTensor = Union[Tensor, SparseTensor, RaggedTensor, EagerTensor]
-
 
 def cnn_block(
-    x: TTensor,
+    x: TensorArr,
     filters: int,
     kernel_size: int,
+    *,
     downsample: bool = False,
     bn: bool = True,
-) -> TTensor:
-    """Conv2D block
+) -> TensorArr:
+    """Conv2D block.
 
     Args:
-        x (TTensor): input tensor
+        x (TensorArr): input tensor
         filters (int): number of output channels
         kernel_size (int): kernel size, 1 or 3
         downsample (bool): down-sampling flag i.e. set stride to 2 if
@@ -36,21 +31,18 @@ def cnn_block(
             3. Leaky-ReLU activation
 
     Returns:
-        TTensor: output tensor
+        TensorArr: output tensor
     """
     # if downsample add stride without padding,
     # otherwise stride 1 with zero padding i.e. keep the spatial dimensions
-    if downsample:
-        strides = 2
-    else:
-        strides = 1
+    strides = 2 if downsample else 1
 
     x_ = tf.keras.layers.Conv2D(
         filters=filters,
         kernel_size=kernel_size,
         strides=strides,
         use_bias=not bn,
-        padding='same',
+        padding="same",
     )(x)
 
     if bn:
@@ -59,8 +51,9 @@ def cnn_block(
     return x_
 
 
-def res_block(x, channels: int) -> TTensor:
-    """Residual Network Block
+def res_block(x: Tensor, channels: int) -> Tensor:
+    """Residual Network Block.
+
     In YOLOv3, the residual network block has two consecutive convolution
     layers which:
         1. half the channels with kernel size 1
@@ -69,11 +62,11 @@ def res_block(x, channels: int) -> TTensor:
         3. add the original input and the output of last step
 
     Args:
-        x (TTensor): input tensor
+        x (TensorArr): input tensor
         channels (int): number of output (input) channels
 
     Returns:
-        TTensor: output tensor
+        TensorArr: output tensor
     """
     x_ = cnn_block(x, channels // 2, 1)
     x_ = cnn_block(x_, channels, 3)
@@ -81,14 +74,15 @@ def res_block(x, channels: int) -> TTensor:
     return x + x_
 
 
-def dn53_block(x: TTensor) -> Tuple[TTensor, TTensor, TTensor]:
-    """DarkNet53 block
-    args:
-        x (TTensor): input tensor
+def dn53_block(x: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    """DarkNet53 block.
+
+    Args:
+        x (Tensor): input tensor
 
     Returns:
-        Tuple[TTensor, TTensor, TTensor]: two intermediate results and one
-            final result
+        Tuple[Tensor, Tensor, Tensor]: two intermediate results and one final
+            result
             1. intermediate one: 256 out channels, after the first eight
                residual block
             2. intermediate two: 512 out channels, after the second eight
@@ -143,20 +137,20 @@ def dn53_block(x: TTensor) -> Tuple[TTensor, TTensor, TTensor]:
     return inter_res_1, inter_res_2, x
 
 
-def netv3(x: TTensor, n_class: int = 80) -> Tuple[TTensor, TTensor, TTensor]:
-    """YOLOv3 network
+def netv3(x: Tensor, n_class: int = 80) -> tuple[Tensor, Tensor, Tensor]:
+    """YOLOv3 network.
 
     Args:
-        x (TTensor): input tensor
+        x (TensorArr): input tensor
         n_class (int): number of classes, default 80 (COCO)
 
     Returns:
-        Tuple[TTensor, TTensor, TTensor]: output tensors of small, medium and
-            large archors respectively
+        Tuple[TensorArr, TensorArr, TensorArr]: output tensors of small,
+        medium and large archors respectively
     """
 
-    def reshape(x: TTensor) -> TTensor:
-        """reshape the output as [N, W, H, 3, N_CLASS+5]"""
+    def reshape(x: TensorArr) -> TensorArr:
+        """Reshape the output as [N, W, H, 3, N_CLASS+5]."""
         shape = x.shape
         return tf.keras.layers.Reshape((shape[1], shape[2], 3, -1))(x)
 
@@ -166,7 +160,7 @@ def netv3(x: TTensor, n_class: int = 80) -> Tuple[TTensor, TTensor, TTensor]:
     # learn, thereby reducing the network parameter
     upsample2 = tf.keras.layers.UpSampling2D(
         size=(2, 2),
-        interpolation='nearest',
+        interpolation="nearest",
     )
 
     inter_1, inter_2, x_ = dn53_block(x)
@@ -254,6 +248,7 @@ def netv3(x: TTensor, n_class: int = 80) -> Tuple[TTensor, TTensor, TTensor]:
 
 
 def model_factory() -> tf.keras.Model:
+    """Create models."""
     x = tf.keras.layers.Input(
         [cfg.V3_INRESOLUT, cfg.V3_INRESOLUT, cfg.V3_INCHANNELS])
     seq_out = netv3(x)

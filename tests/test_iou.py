@@ -1,15 +1,19 @@
+"""Test IoU functions of module box."""
 import numpy as np
 
 from yolov3.box import iou_bbox
 
-bbox1 = (2.5, 3.4, 5.0, 6.0)
-bbox2 = (2.6, 4.3, 6.0, 4.0)
+BBOX1 = (2.5, 3.4, 5.0, 6.0)
+BBOX2 = (2.6, 4.3, 6.0, 4.0)
+LMT_UP = 0.5883
+LMT_LOW = 0.5882
 
-bboxes1 = np.array((bbox1, bbox1))
-bboxes2 = np.array((bbox2, bbox2))
+bboxes1 = np.array((BBOX1, BBOX1))
+bboxes2 = np.array((BBOX2, BBOX2))
 
 
-def test_iou_bbox():
+def test_iou_bbox() -> None:
+    """Test box.iou_bbox."""
     res = iou_bbox(bboxes1, bboxes2).numpy()
-    assert np.all(res > 0.5882)
-    assert np.all(res < 0.5883)
+    assert np.all(res > LMT_LOW)
+    assert np.all(res < LMT_UP)

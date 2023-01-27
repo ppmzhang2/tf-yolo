@@ -1,4 +1,5 @@
 {
+    "typeCheckingMode": "off",
     "pythonVersion": "3.10",
     "diagnosticMode": "openFilesOnly",
     "exclude": ["**/node_modules", "**/__pycache__", "**/__pypackages__"],

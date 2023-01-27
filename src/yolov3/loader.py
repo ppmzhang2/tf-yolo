@@ -1,3 +1,4 @@
+"""Load model weights."""
 from dataclasses import dataclass
 from typing import NoReturn
 
@@ -6,14 +7,12 @@ import numpy as np
 from keras.engine.base_layer import Layer
 from keras.engine.functional import Functional
 
-__all__ = ['load_weight_cv2']
+__all__ = ["load_weight_cv2"]
 
 
 @dataclass(frozen=True)
 class LayerMap:
-    """
-    one layer of opencv and tensorflow layer names respectively
-    """
+    """One layer of opencv and tensorflow layer names respectively."""
     cv: str
     tf: str
 
@@ -28,9 +27,11 @@ class LayerMap:
 
 
 class BnLayerMap(LayerMap):
+    """Batch Normalization Layer Mapping."""
 
     def load_cv2tf(self, net: cv2.dnn.Net, model: Functional) -> NoReturn:
-        """load into tensorflow model opencv BN layer weights
+        """Load into tensorflow model opencv BN layer weights.
+
         weight data format in cv: [mean, var, gamma, beta]
         weight data format in tf: [gamma, beta, mean, var]
         """
@@ -48,10 +49,16 @@ class BnLayerMap(LayerMap):
 
 
 class ConvLayerMap(LayerMap):
+    """Convolutional Layer Mapping."""
+
+    # length of weight sequence (blobs) if the layer enables bias
+    _LEN_BIAS_LAYER_BLOB = 2
 
     @staticmethod
     def weight_cv2tf(arr: np.ndarray) -> np.ndarray:
-        """
+        """Transform open-cv conv weights into tensorflow ones.
+
+        permutating dimensions:
         cv Conv weigh format: (channel_out, channel_in, height, width)
         tf Conv weight format: (height, width, channel_in, channel_out)
         tf Conv bias format: (channel_in, ) i.e. squeezed vector
@@ -59,11 +66,12 @@ class ConvLayerMap(LayerMap):
         return arr.transpose([2, 3, 1, 0])
 
     def load_cv2tf(self, net: cv2.dnn.Net, model: Functional) -> NoReturn:
-        """load into tensorflow model opencv Conv layer weights
+        """Load into tensorflow model opencv Conv layer weights.
+
         weight data format in tf: [weights, Optional[bias]]
         """
         cv_weights = self._cv_weights(net)
-        if len(cv_weights) >= 2:
+        if len(cv_weights) >= self._LEN_BIAS_LAYER_BLOB:
             weight, bias = cv_weights[0], cv_weights[1]
             tf_weights = [self.weight_cv2tf(weight), bias.squeeze()]
         else:
@@ -225,5 +233,6 @@ layers = [
 
 
 def load_weight_cv2(net: cv2.dnn.Net, model: Functional) -> NoReturn:
+    """Load weights from an open-cv model into a tensorflow one."""
     for tp in layers:
         tp.load_cv2tf(net, model)

@@ -9,6 +9,7 @@ import tensorflow as tf
 from . import cfg
 from .box import bbox
 from .box import pbox
+from .datasets.utils import onehot_cate_sn
 from .types import Tensor
 
 LOGGER = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ def get_loss(
     label_xywh = bbox.xywh(label)
     label_conf_pr = bbox.conf(label)
     label_class = bbox.class_id(label, squeezed=True)
-    label_class_pr = tf.one_hot(tf.cast(label_class, dtype=tf.int32), N_CLASS)
+    label_class_pr = onehot_cate_sn(label_class, N_CLASS)
 
     iou_score = tf.expand_dims(bbox.iou(pred_xywh, label_xywh), axis=-1)
     noobj_pr = tf.cast(iou_score < iou_threshold, tf.float32)
@@ -96,6 +97,7 @@ def grad(
     with tf.GradientTape() as tape:
         seq_pred = model(x)
 
+        # TODO: handle loss_sum = nan
         loss_sum = 0
         for i, pred in enumerate(seq_pred):
             loss = get_loss(pred, labels[i])

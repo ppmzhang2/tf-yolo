@@ -1,11 +1,12 @@
 """dataset for YOLOv3.
 
 data format:
-    - [N_BATCH, 416, 416, 3] for image feature matrix
-    - a tuple of three arrays (for each grid scale, i.e. 52, 26, 13
-      representing small, medium and large grid respectively) for labels, where
-      one array has a shape like [GRID_SIZE, GRID_SIZE, N_MEASURE_PER_GRID, 6].
-      The last dimension contains in order:
+    - [N_BATCH, 416, 416, 3] for image feature tensor
+    - a tuple of three tensors (for each grid scale, i.e. 52, 26, 13
+      representing small, medium and large grid respectively) for labels;
+      each tensor has a shape like
+          [GRID_SIZE, GRID_SIZE, N_MEASURE_PER_GRID, 6].
+      The last rank contains the following dimensions in order:
           x, y, w, h, conf, classid
 
 TODO: data augmentation
@@ -47,6 +48,9 @@ T_SEQ_LABEL = tuple[np.ndarray, np.ndarray, np.ndarray]
 N_IMG = 40504
 BATCH_COUNT_INIT = 0
 IMG_ROWID_INIT = 1
+
+# map from COCO original class ID to class serial number
+CATEID_MAP = {cateid: sn for sn, cateid, name in cfg.COCO_CATE}
 
 
 class Yolov3Dataset:
@@ -117,13 +121,14 @@ class Yolov3Dataset:
                 # decide cell here, this is easier than drawing grids
                 i, j = int(x // stride), int(y // stride)
                 w, h = row.w * cfg.V3_INRESOLUT, row.h * cfg.V3_INRESOLUT
+                cate_sn = CATEID_MAP[row.cateid]
                 # fill in
                 seq_label[idx_scale][i, j, idx_measure, 0] = x
                 seq_label[idx_scale][i, j, idx_measure, 1] = y
                 seq_label[idx_scale][i, j, idx_measure, 2] = w
                 seq_label[idx_scale][i, j, idx_measure, 3] = h
                 seq_label[idx_scale][i, j, idx_measure, 4] = 1
-                seq_label[idx_scale][i, j, idx_measure, 5] = row.cateid
+                seq_label[idx_scale][i, j, idx_measure, 5] = cate_sn
 
         return tuple(seq_label)
 

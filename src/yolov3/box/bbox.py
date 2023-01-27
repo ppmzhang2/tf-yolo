@@ -61,7 +61,10 @@ def class_id(bbox: TensorArr, *, squeezed: bool = False) -> TensorArr:
 
     Args:
         bbox (TensorArr): bounding box
-        squeezed (bool): last dimension is 1 if False, squeezed otherwise
+        squeezed (bool): suppose the number of ranks of the input tensor is R,
+            the #rank of the output tensor will be R - 1 is `squeezed = True`.
+            Otherwise the #rank of the output will remain as R, and the last
+            rank contains only 1 dimension
     """
     if squeezed:
         return bbox[..., 5]

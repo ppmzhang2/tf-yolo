@@ -26,8 +26,8 @@ MAX_REC = 10000000
 # format COCO box as a relative representation
 # COCO box format:
 #   - bbox1, bbox2: the upper-left coordinates of the bounding box
-#   - bbox3, bbox3: the dimensions of your bounding box
-# new format:
+#   - bbox3, bbox4: the width and height of the bounding box
+# new format (all in range [0, 1]):
 #   - x, y: coordinates of the bounding box center
 #   - w, h: width and height of the bounding box
 FORMAT_QUERY = """

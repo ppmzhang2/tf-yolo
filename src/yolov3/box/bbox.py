@@ -12,22 +12,12 @@ format: (x, y, w, h, conf, classid, [logit_1, logit_2, ...])
 A raw model prediction is NOT a bounding box;
 transform it using functions in `pbox`
 """
-from typing import Iterable
-
 import tensorflow as tf
 
 from .. import cfg
+from ..types import Tensor
 from ..types import TensorArr
 from . import dbox
-
-
-def objects(seq_label: Iterable[TensorArr]) -> tf.Tensor:
-    """Get bounding boxes only with valid class IDs."""
-    seq_bbox = [tf.reshape(label, (-1, 6)) for label in seq_label]
-    bboxes = tf.concat(seq_bbox, axis=0)
-    # get indices where class ID <> 0
-    idx = tf.where(bboxes[..., 5])
-    return tf.squeeze(tf.gather(bboxes, idx))
 
 
 def xy(bbox: TensorArr) -> TensorArr:
@@ -118,3 +108,18 @@ def iou(bbox_pred: TensorArr, bbox_label: TensorArr) -> TensorArr:
     area_inter = interarea(bbox_pred, bbox_label)
     area_union = area_pred + area_label - area_inter
     return (area_inter + cfg.EPSILON) / (area_union + cfg.EPSILON)
+
+
+def objects(bbox: TensorArr) -> Tensor:
+    """Get bounding boxes only with valid class IDs.
+
+    Args:
+        bbox (TensorArr): any bounding box of any valid shape
+
+    Return:
+        Tensor: tensor of shape [N, 6] where N is the number of boxes
+        containing an object, filtered by class ID
+    """
+    # get indices where class ID <> 0
+    idx = tf.where(class_id(bbox, squeezed=True))
+    return tf.gather_nd(bbox, idx)

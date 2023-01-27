@@ -1,4 +1,11 @@
-"""Manipulate diagonal boxes."""
+"""Manipulate diagonal boxes.
+
+shape: [..., M], where M >= 6:
+    - M = 6 for ground truth label;
+    - M > 6 for model prediction with class logit e.g. M = 86 if N_CLASS = 80
+
+format: (x_min, y_min, x_max, y_max, [conf], classid, [logit_1, logit_2, ...])
+"""
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -128,7 +135,7 @@ def img_add_box(img: np.ndarray, dboxes: TensorArr) -> np.ndarray:
     """
     for dbox in (dboxes.astype(np.int32) if isinstance(dboxes, np.ndarray) else
                  dboxes.numpy().astype(np.int32)):
-        x_min, y_min, x_max, y_max, cls_id = dbox
+        x_min, y_min, x_max, y_max, _, cls_id = dbox
         class_name = CATE_MAP[int(cls_id)]
         cv2.rectangle(img, (x_min, y_min), (x_max, y_max),
                       color=BOX_COLOR,

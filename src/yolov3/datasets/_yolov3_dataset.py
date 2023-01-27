@@ -1,5 +1,13 @@
 """dataset for YOLOv3.
 
+data format:
+    - [N_BATCH, 416, 416, 3] for image feature matrix
+    - a tuple of three arrays (for each grid scale, i.e. 52, 26, 13
+      representing small, medium and large grid respectively) for labels, where
+      one array has a shape like [GRID_SIZE, GRID_SIZE, N_MEASURE_PER_GRID, 6].
+      The last dimension contains in order:
+          x, y, w, h, conf, classid
+
 TODO: data augmentation
 """
 import base64
@@ -7,9 +15,9 @@ import base64
 import cv2
 import numpy as np
 
-from .. import box
 from .. import cfg
 from .. import db
+from ..box import whbox
 
 __all__ = ["Yolov3Dataset"]
 
@@ -97,7 +105,7 @@ class Yolov3Dataset:
         seq_row = db.dao.labels_by_img_id(img_id)
         for row in seq_row:
             box_wh = np.array([row["x"], row["y"]], dtype=np.float32)
-            scores = box.iou_width_height(box_wh, ANCHORS)
+            scores = whbox.iou(box_wh, ANCHORS)
             ranks = np.argsort(-scores)  # desending
             _indices_scale, _indices_measure = np.where(ranks == 0)
             # 0: small, 1: medium, 2: large
@@ -110,11 +118,11 @@ class Yolov3Dataset:
                 i, j = int(x // stride), int(y // stride)
                 w, h = row["w"] * cfg.V3_INRESOLUT, row["h"] * cfg.V3_INRESOLUT
                 # fill in
-                seq_label[idx_scale][i, j, idx_measure, 0] = 1
-                seq_label[idx_scale][i, j, idx_measure, 1] = x
-                seq_label[idx_scale][i, j, idx_measure, 2] = y
-                seq_label[idx_scale][i, j, idx_measure, 3] = w
-                seq_label[idx_scale][i, j, idx_measure, 4] = h
+                seq_label[idx_scale][i, j, idx_measure, 0] = x
+                seq_label[idx_scale][i, j, idx_measure, 1] = y
+                seq_label[idx_scale][i, j, idx_measure, 2] = w
+                seq_label[idx_scale][i, j, idx_measure, 3] = h
+                seq_label[idx_scale][i, j, idx_measure, 4] = 1
                 seq_label[idx_scale][i, j, idx_measure, 5] = row["cateid"]
 
         return tuple(seq_label)

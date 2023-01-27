@@ -6,8 +6,9 @@ from typing import NoReturn
 import numpy as np
 import tensorflow as tf
 
-from . import box
 from . import cfg
+from .box import bbox
+from .box import pbox
 from .types import Tensor
 
 LOGGER = logging.getLogger(__name__)
@@ -27,49 +28,6 @@ ANCHORS_MAP = {
 }
 
 
-def grid_coord(batch_size: int, grid_size: int, n_anchor: int) -> Tensor:
-    """Top-left coordinates of each grid cells.
-
-    created usually out of a output tensor
-
-    Args:
-        batch_size (int): batch size
-        grid_size (int): grid size, could be 13 (large), 26 (medium) or 52
-            (small)
-        n_anchor (int): number of anchors of a specific grid size, usually
-            should be 3
-    """
-    vec = tf.range(0, limit=grid_size, dtype=tf.float32)  # x or y range
-    xs = vec[tf.newaxis, :, tf.newaxis, tf.newaxis]
-    ys = vec[tf.newaxis, tf.newaxis, :, tf.newaxis]
-    xss = tf.tile(xs, (batch_size, 1, grid_size, n_anchor))
-    yss = tf.tile(ys, (batch_size, grid_size, 1, n_anchor))
-    return tf.stack([xss, yss], axis=-1)
-
-
-def pred2act(y: Tensor) -> Tensor:
-    """Transform prediction to actual size."""
-    batch_size = y.shape[0]
-    grid_size = y.shape[1]
-    n_anchor = y.shape[3]
-    stride = STRIDE_MAP[grid_size]
-    anchors = ANCHORS_MAP[grid_size]
-    topleft_coords = grid_coord(batch_size, grid_size, n_anchor)
-    offset_raw = y[..., :2]
-    wh_exp = y[..., 2:4]
-    conf_logit = y[..., 4:5]
-    class_logit = y[..., 5:]
-
-    act_xy = (tf.sigmoid(offset_raw) + topleft_coords) * stride
-    act_wh = (tf.exp(wh_exp) * anchors) * stride
-    conf_pr = tf.sigmoid(conf_logit)
-    # class_pr = tf.sigmoid(class_logit)
-    return tf.concat(
-        [act_xy, act_wh, conf_logit, conf_pr, class_logit],
-        axis=-1,
-    )
-
-
 def get_loss(
     pred: Tensor,
     label: Tensor,
@@ -83,18 +41,18 @@ def get_loss(
     def calc(loss: Tensor) -> Tensor:
         return tf.reduce_mean(tf.reduce_sum(loss, axis=[1, 2, 3, 4]))
 
-    pred = pred2act(pred)
+    pred_bbox = pbox.scaled_bbox(pred)
 
-    pred_xywh = pred[..., 0:4]
-    pred_conf_lg = pred[..., 4:5]
-    pred_class_lg = pred[..., 6:]
+    pred_xywh = bbox.xywh(pred_bbox)
+    pred_conf_lg = bbox.conf(pred_bbox)
+    pred_class_lg = bbox.class_logits(pred_bbox)
 
-    label_conf_pr = label[..., 0:1]
-    label_xywh = label[..., 1:5]
-    label_class = label[..., 5]
+    label_xywh = bbox.xywh(label)
+    label_conf_pr = bbox.conf(label)
+    label_class = bbox.class_id(label, squeezed=True)
     label_class_pr = tf.one_hot(tf.cast(label_class, dtype=tf.int32), N_CLASS)
 
-    iou_score = tf.expand_dims(box.iou_bbox(pred_xywh, label_xywh), axis=-1)
+    iou_score = tf.expand_dims(bbox.iou(pred_xywh, label_xywh), axis=-1)
     noobj_pr = tf.cast(iou_score < iou_threshold, tf.float32)
     loss_iou = tf.multiply(label_conf_pr, tf.subtract(1, iou_score))
     loss_conf = tf.multiply(

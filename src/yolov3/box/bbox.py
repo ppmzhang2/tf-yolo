@@ -15,6 +15,8 @@ format: (x, y, w, h, x_offset, y_offset, w_exp, h_exp, conf, class SN,
 A raw model prediction is NOT a bounding box;
 transform it using functions in `pbox`
 """
+import math
+
 import tensorflow as tf
 
 from .. import cfg
@@ -140,16 +142,36 @@ def iou(bbox_pred: TensorArr, bbox_label: TensorArr) -> TensorArr:
     return (area_inter + cfg.EPSILON) / (area_union + cfg.EPSILON)
 
 
-def objects(bbox: TensorArr) -> Tensor:
-    """Get bounding boxes only with valid class IDs.
+def _inverse_sig(x: float) -> float:
+    return math.log(x / (1 - x))
+
+
+def objects(
+    bbox: TensorArr,
+    *,
+    from_logits: bool = False,
+    conf_th: float = 0.1,
+) -> Tensor:
+    """Get bounding boxes only with high confidence scores.
 
     Args:
         bbox (TensorArr): any bounding box of any valid shape
+        from_logits (bool): whether the confidence score is logit or
+            probability, default False
+        conf_th (float): confidence threshold, default 0.1
 
     Return:
-        Tensor: tensor of shape [N, 6] where N is the number of boxes
+        Tensor: tensor of shape [N, 10] where N is the number of boxes
         containing an object, filtered by class ID
     """
     # get indices where class ID <> 0
-    idx = tf.where(class_sn(bbox, squeezed=True))
+    if from_logits:
+        conf_th = _inverse_sig(conf_th)
+    idx = tf.where(conf(bbox, squeezed=True) >= conf_th)
+    return tf.gather_nd(bbox, idx)
+
+
+def classof(bbox: TensorArr, sn: int) -> Tensor:
+    """Filter a bbox by class SN."""
+    idx = tf.where(class_sn(bbox, squeezed=True) == sn)
     return tf.gather_nd(bbox, idx)

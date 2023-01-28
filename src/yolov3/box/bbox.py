@@ -1,13 +1,16 @@
 """Manipulate bounding boxes.
 
-shape: [..., M], where M >= 6:
-    - M = 6 for ground truth label;
-    - M > 6 for model prediction with class logit e.g. M = 86 if N_CLASS = 80
+shape: [..., M], where M >= 10:
+    - M = 10 for ground truth label;
+    - M > 10 for model prediction with class logit e.g. M = 90 if N_CLASS = 80
 
-format: (x, y, w, h, conf, classid, [logit_1, logit_2, ...])
-    - ground truth label: (x, y, w, h, 1, classid)
+format: (x, y, w, h, x_offset, y_offset, w_exp, h_exp, conf, class SN,
+         [logit_1, logit_2, ...])
+    - ground truth label:
+        (x, y, w, h, x_offset, y_offset, w_exp, h_exp, conf_flag, class SN)
     - TRANSFORMED prediction:
-        (x, y, w, h, conf_logit, class_id, class_logit_1, class_logit_2, ...)
+        (x, y, w, h, x_offset, y_offset, w_exp, h_exp, conf_logit, class SN,
+         class_logit_1, class_logit_2, ...)
 
 A raw model prediction is NOT a bounding box;
 transform it using functions in `pbox`
@@ -47,16 +50,40 @@ def xywh(bbox: TensorArr) -> TensorArr:
     return bbox[..., :4]
 
 
-def conf(bbox: TensorArr) -> TensorArr:
-    """Get object confidence from a tensor / array.
+def xy_offset(bbox: TensorArr) -> TensorArr:
+    """From bounding box get center poiont coordinates offset.
 
     Args:
         bbox (TensorArr): bounding box
     """
-    return bbox[..., 4:5]
+    return bbox[..., 4:6]
 
 
-def class_id(bbox: TensorArr, *, squeezed: bool = False) -> TensorArr:
+def wh_exp(bbox: TensorArr) -> TensorArr:
+    """From bbox get width and height exponent of shape (..., 2).
+
+    Args:
+        bbox (TensorArr): bounding box
+    """
+    return bbox[..., 6:8]
+
+
+def conf(bbox: TensorArr, *, squeezed: bool = False) -> TensorArr:
+    """Get object confidence from a tensor / array.
+
+    Args:
+        bbox (TensorArr): bounding box
+        squeezed (bool): suppose the number of ranks of the input tensor is R,
+            the #rank of the output tensor will be R - 1 is `squeezed = True`.
+            Otherwise the #rank of the output will remain as R, and the last
+            rank contains only 1 dimension
+    """
+    if squeezed:
+        return bbox[..., 8]
+    return bbox[..., 8:9]
+
+
+def class_sn(bbox: TensorArr, *, squeezed: bool = False) -> TensorArr:
     """Get class ID from a tensor / array.
 
     Args:
@@ -67,8 +94,8 @@ def class_id(bbox: TensorArr, *, squeezed: bool = False) -> TensorArr:
             rank contains only 1 dimension
     """
     if squeezed:
-        return bbox[..., 5]
-    return bbox[..., 5:6]
+        return bbox[..., 9]
+    return bbox[..., 9:10]
 
 
 def class_logits(bbox: TensorArr) -> TensorArr:
@@ -77,7 +104,7 @@ def class_logits(bbox: TensorArr) -> TensorArr:
     Args:
         bbox (TensorArr): bounding box
     """
-    return bbox[..., 6:]
+    return bbox[..., 10:]
 
 
 def area(bbox: TensorArr) -> TensorArr:
@@ -91,7 +118,7 @@ def asdbox(bbox: TensorArr) -> TensorArr:
         [
             xy(bbox) - wh(bbox) * 0.5,
             xy(bbox) + wh(bbox) * 0.5,
-            bbox[..., 4:],
+            bbox[..., 8:],
         ],
         axis=-1,
     )
@@ -124,5 +151,5 @@ def objects(bbox: TensorArr) -> Tensor:
         containing an object, filtered by class ID
     """
     # get indices where class ID <> 0
-    idx = tf.where(class_id(bbox, squeezed=True))
+    idx = tf.where(class_sn(bbox, squeezed=True))
     return tf.gather_nd(bbox, idx)

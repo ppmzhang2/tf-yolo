@@ -32,49 +32,70 @@ ANCHORS_MAP = {
 def get_loss(
     pred: Tensor,
     label: Tensor,
-    iou_threshold: float = 0.3,
+    lambda_obj: float = 10.0,
+    lambda_bgd: float = 1.0,
 ) -> Tensor:
     """Calculate loss.
 
     TODO: add lambda coef
     """
+    pred_ = pbox.scaled_bbox(pred)
 
-    def calc(loss: Tensor) -> Tensor:
-        return tf.reduce_mean(tf.reduce_sum(loss, axis=[1, 2, 3, 4]))
+    indices_obj = tf.where(bbox.conf(label, squeezed=True))
+    indices_bgd = tf.where(bbox.conf(label, squeezed=True) == 1)
 
-    pred_bbox = pbox.scaled_bbox(pred)
+    prd_obj = tf.gather_nd(pred_, indices_obj)
+    prd_bgd = tf.gather_nd(pred_, indices_bgd)
+    lab_obj = tf.gather_nd(label, indices_obj)
+    lab_bgd = tf.gather_nd(label, indices_bgd)
 
-    pred_xywh = bbox.xywh(pred_bbox)
-    pred_conf_lg = bbox.conf(pred_bbox)
-    pred_class_lg = bbox.class_logits(pred_bbox)
+    ious = tf.expand_dims(bbox.iou(prd_obj, lab_obj), axis=-1)
+    # background loss
+    loss_bgd = lambda_bgd * tf.reduce_mean(
+        tf.nn.sigmoid_cross_entropy_with_logits(
+            labels=bbox.conf(lab_bgd),
+            logits=bbox.conf(prd_bgd),
+        ))
 
-    label_xywh = bbox.xywh(label)
-    label_conf_pr = bbox.conf(label)
-    label_class = bbox.class_id(label, squeezed=True)
-    label_class_pr = onehot_cate_sn(label_class, N_CLASS)
+    # object loss
+    # label probability should be `1 * IOU` score according to the YOLO paper
+    loss_obj = lambda_obj * tf.reduce_mean(
+        tf.keras.losses.binary_crossentropy(
+            y_true=ious * bbox.conf(lab_obj),
+            y_pred=bbox.conf(prd_obj),
+            from_logits=True,
+        ))
 
-    iou_score = tf.expand_dims(bbox.iou(pred_xywh, label_xywh), axis=-1)
-    noobj_pr = tf.cast(iou_score < iou_threshold, tf.float32)
-    loss_iou = tf.multiply(label_conf_pr, tf.subtract(1, iou_score))
-    loss_conf = tf.multiply(
-        label_conf_pr,
-        tf.nn.sigmoid_cross_entropy_with_logits(labels=label_conf_pr,
-                                                logits=pred_conf_lg),
-    ) + tf.multiply(
-        noobj_pr,
-        tf.nn.sigmoid_cross_entropy_with_logits(labels=label_conf_pr,
-                                                logits=pred_conf_lg),
-    )
-    loss_class = tf.multiply(
-        label_conf_pr,
-        tf.nn.sigmoid_cross_entropy_with_logits(labels=label_class_pr,
-                                                logits=pred_class_lg),
-    )
-    LOGGER.info("    "
-                f"IOU Loss={calc(loss_iou)}; "
-                f"Conf Loss={calc(loss_conf)}; "
-                f"Class Loss={calc(loss_class)}")
-    return calc(loss_iou) + calc(loss_conf) + calc(loss_class)
+    # object center coordinates (xy) loss
+    loss_xy = tf.reduce_mean(
+        tf.keras.losses.mean_squared_error(
+            bbox.xy_offset(lab_obj),
+            bbox.xy_offset(prd_obj),
+        ))
+
+    # box size (wh) loss
+    loss_wh = tf.reduce_mean(
+        tf.keras.losses.mean_squared_error(
+            bbox.wh_exp(lab_obj),
+            bbox.wh_exp(prd_obj),
+        ))
+
+    # class loss
+    loss_class = tf.reduce_mean(
+        tf.keras.losses.binary_crossentropy(
+            y_true=onehot_cate_sn(bbox.class_sn(lab_obj, squeezed=True),
+                                  N_CLASS),
+            y_pred=bbox.class_logits(prd_obj),
+            from_logits=True,
+        ))
+
+    LOGGER.info("\n"
+                f"    Background Loss={loss_bgd};\n"
+                f"    Object Loss={loss_obj};\n"
+                f"    XY Loss={loss_xy};\n"
+                f"    WH Loss={loss_wh};\n"
+                f"    Class Loss={loss_class}")
+    return loss_bgd + loss_obj + loss_xy + loss_wh + loss_class
 
 
 def grad(

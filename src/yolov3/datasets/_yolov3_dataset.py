@@ -5,13 +5,14 @@ data format:
     - a tuple of three tensors (for each grid scale, i.e. 52, 26, 13
       representing small, medium and large grid respectively) for labels;
       each tensor has a shape like
-          [GRID_SIZE, GRID_SIZE, N_MEASURE_PER_GRID, 6].
+          [GRID_SIZE, GRID_SIZE, N_MEASURE_PER_GRID, 10].
       The last rank contains the following dimensions in order:
-          x, y, w, h, conf, classid
+          x, y, w, h, x_offset, y_offset, w_exp, h_exp, conf, classid
 
 TODO: data augmentation
 """
 import base64
+import math
 
 import cv2
 import numpy as np
@@ -24,8 +25,8 @@ __all__ = ["Yolov3Dataset"]
 
 # 3*3*2 tensor repreneting anchors of 3 different scales,
 # i.e. small, medium, large; and three different measures.
-# ANCHORS.shape[0] represents 3 anchor scales
-# ANCHORS.shape[1] represents 3 measures of each scale
+# Its 1st rank represents three anchor scales and the 2nd rank represents three
+# measures of each scale
 #
 # smalls: ANCHORS[0, ...], mediums: ANCHORS[1, ...] larges: ANCHORS[2, ...]
 # [[[0.02403846, 0.03125   ],
@@ -55,7 +56,7 @@ CATEID_MAP = {cateid: sn for sn, cateid, name in cfg.COCO_CATE}
 
 class Yolov3Dataset:
 
-    def __init__(self, batch_size: int = 2):
+    def __init__(self, batch_size: int = 4):
         self.batch_size = batch_size
         self.batch_count = BATCH_COUNT_INIT  # as a counter
         self.img_rowid = IMG_ROWID_INIT  # image row ID to stat
@@ -76,8 +77,25 @@ class Yolov3Dataset:
         return img_.astype(np.float32)
 
     @staticmethod
-    def get_label_by_id(img_id: int) -> T_SEQ_LABEL:
-        """Get one label by ID.
+    def max_iou_index(
+        wh: np.ndarray,
+        anchors: np.ndarray,
+    ) -> tuple[np.ndarray, ...]:
+        """Get maximum IoU archors' indices.
+
+        Args:
+            wh (np.ndarray): width-height box of shape [2, ]
+            anchors (np.ndarray): anchors array of shape [..., 2]
+
+        Returns:
+            tuple[np.ndarray, ...]: suppose input `anchors` has a shape of
+            [M1, M2, ..., Mn, 2], the result will be a tuple of `n` 1d arrays.
+            The ith array will correspond to indices of the ith rank of
+            `anchors`, indicating the element which has the largest IoU with
+            the input `wh` box
+
+        By comparing a width-height box, get the most similar (i.e. largest
+        IoU score) anchors' indices by each of their prier ranks.
 
         This method assumes that every ground truth box has a UNIQUE
         (center-cell, anchor scale, anchor measure) combination, for otherwise
@@ -101,34 +119,51 @@ class Yolov3Dataset:
             the occurrence of 0s indicate the index for scale and measures:
             [0, 2], [1, 0] and [2, 0], format: [scale, measure]
         """
+        scores = whbox.iou(wh, anchors)
+        ranks = np.argsort(-scores)  # desending
+        return np.where(ranks == 0)
+
+    @classmethod
+    def get_label_by_id(cls, img_id: int) -> T_SEQ_LABEL:
+        """Get one label by ID."""
         # TODO: random noise?
+        ndim_last_rank = 10
         seq_label = [
-            np.zeros((size, size, ANCHORS.shape[1], 6), dtype=np.float32)
-            for size in cfg.V3_GRIDSIZE
+            np.zeros((size, size, ANCHORS.shape[1], ndim_last_rank),
+                     dtype=np.float32) for size in cfg.V3_GRIDSIZE
         ]
         seq_row = db.dao.labels_by_img_id(img_id)
         for row in seq_row:
-            box_wh = np.array([row.x, row.y], dtype=np.float32)
-            scores = whbox.iou(box_wh, ANCHORS)
-            ranks = np.argsort(-scores)  # desending
-            _indices_scale, _indices_measure = np.where(ranks == 0)
+            indices_scale, indices_measure = cls.max_iou_index(
+                np.array([row.x, row.y], dtype=np.float32), ANCHORS)
             # 0: small, 1: medium, 2: large
-            for idx_scale, idx_measure in zip(_indices_scale,
-                                              _indices_measure,
+            for idx_scale, idx_measure in zip(indices_scale,
+                                              indices_measure,
                                               strict=True):
                 stride = STRIDES[idx_scale]
                 x, y = row.x * cfg.V3_INRESOLUT, row.y * cfg.V3_INRESOLUT
-                # decide cell here, this is easier than drawing grids
-                i, j = int(x // stride), int(y // stride)
+                # offset and top-left grid cell width index
+                x_offset, i_ = math.modf(x / stride)
+                # offset and top-left grid cell height index
+                y_offset, j_ = math.modf(y / stride)
+                i, j = int(i_), int(j_)
                 w, h = row.w * cfg.V3_INRESOLUT, row.h * cfg.V3_INRESOLUT
+                # reverse operation of anchor_w * e^{w_exp}
+                w_exp = math.log(row.w / ANCHORS[idx_scale, idx_measure][0])
+                # reverse operation of anchor_h * e^{h_exp}
+                h_exp = math.log(row.h / ANCHORS[idx_scale, idx_measure][1])
                 cate_sn = CATEID_MAP[row.cateid]
                 # fill in
                 seq_label[idx_scale][i, j, idx_measure, 0] = x
                 seq_label[idx_scale][i, j, idx_measure, 1] = y
                 seq_label[idx_scale][i, j, idx_measure, 2] = w
                 seq_label[idx_scale][i, j, idx_measure, 3] = h
-                seq_label[idx_scale][i, j, idx_measure, 4] = 1
-                seq_label[idx_scale][i, j, idx_measure, 5] = cate_sn
+                seq_label[idx_scale][i, j, idx_measure, 4] = x_offset
+                seq_label[idx_scale][i, j, idx_measure, 5] = y_offset
+                seq_label[idx_scale][i, j, idx_measure, 6] = w_exp
+                seq_label[idx_scale][i, j, idx_measure, 7] = h_exp
+                seq_label[idx_scale][i, j, idx_measure, 8] = 1
+                seq_label[idx_scale][i, j, idx_measure, 9] = cate_sn
 
         return tuple(seq_label)
 

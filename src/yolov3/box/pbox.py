@@ -8,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 from .. import cfg
+from ..datasets.utils import onecold_cate_sn
 from ..types import Tensor
 from ..types import TensorArr
 
@@ -99,13 +100,13 @@ def scaled_bbox(y: Tensor) -> Tensor:
     topleft_coords = _grid_coord(batch_size, grid_size, n_anchor)
     xy_raw = xy(y)
     wh_exp = wh(y)
-    class_logit = class_logits(y)
+    cate_logit = class_logits(y)
 
     act_xy = (tf.sigmoid(xy_raw) + topleft_coords) * stride
     act_wh = (tf.exp(wh_exp) * anchors) * stride
-    class_ids = tf.cast(tf.argmax(class_logit, axis=-1),
-                        dtype=tf.float32)[..., tf.newaxis]
+    cate_sn = onecold_cate_sn(cate_logit)
     return tf.concat(
-        [act_xy, act_wh, conf(y), class_ids, class_logit],
+        [act_xy, act_wh,
+         conf(y), cate_sn[..., tf.newaxis], cate_logit],
         axis=-1,
     )

@@ -33,7 +33,7 @@ def cnn_block(
     Returns:
         TensorArr: output tensor
     """
-    # if downsample add stride without padding,
+    # if downsample, add stride without padding,
     # otherwise stride 1 with zero padding i.e. keep the spatial dimensions
     strides = 2 if downsample else 1
 

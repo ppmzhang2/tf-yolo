@@ -58,7 +58,7 @@ class ConvLayerMap(LayerMap):
     def weight_cv2tf(arr: np.ndarray) -> np.ndarray:
         """Transform open-cv conv weights into tensorflow ones.
 
-        permutating dimensions:
+        permutating ranks:
         cv Conv weigh format: (channel_out, channel_in, height, width)
         tf Conv weight format: (height, width, channel_in, channel_out)
         tf Conv bias format: (channel_in, ) i.e. squeezed vector

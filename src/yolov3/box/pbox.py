@@ -98,15 +98,22 @@ def scaled_bbox(y: Tensor) -> Tensor:
     stride = STRIDE_MAP[grid_size]
     anchors = ANCHORS_MAP[grid_size]
     topleft_coords = _grid_coord(batch_size, grid_size, n_anchor)
-    xy_raw = xy(y)
-    wh_exp = wh(y)
+    xy_sig = tf.sigmoid(xy(y))
+    wh_exp = tf.sigmoid(wh(y))
     cate_logit = class_logits(y)
 
-    act_xy = (tf.sigmoid(xy_raw) + topleft_coords) * stride
-    act_wh = (tf.exp(wh_exp) * anchors) * stride
+    xy_act = (xy_sig + topleft_coords) * stride
+    wh_act = (tf.exp(wh_exp) * anchors) * stride
     cate_sn = onecold_cate_sn(cate_logit)
     return tf.concat(
-        [act_xy, act_wh,
-         conf(y), cate_sn[..., tf.newaxis], cate_logit],
+        [
+            xy_act,
+            wh_act,
+            xy_sig,
+            wh_exp,
+            conf(y),
+            cate_sn[..., tf.newaxis],
+            cate_logit,
+        ],
         axis=-1,
     )

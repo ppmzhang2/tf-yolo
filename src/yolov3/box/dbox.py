@@ -47,6 +47,8 @@ def interarea(dbox_pred: TensorArr, dbox_label: TensorArr) -> TensorArr:
 def img_add_box(img: np.ndarray, dboxes: TensorArr) -> np.ndarray:
     """Add bounding boxes to an image array.
 
+    TODO: add confidence
+
     Args:
         img (np.ndarray): image NumPy array
         dboxes (TfArrayT): diagonal boxes array of shape (N_BOX, 5)

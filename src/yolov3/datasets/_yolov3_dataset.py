@@ -13,9 +13,12 @@ TODO: data augmentation
 """
 import base64
 import math
+from typing import NoReturn
+from typing import TypeAlias
 
 import cv2
 import numpy as np
+from sqlalchemy.engine.row import Row
 
 from .. import cfg
 from .. import db
@@ -44,7 +47,7 @@ ANCHORS = np.array(cfg.V3_ANCHORS, dtype=np.float32) / cfg.V3_INRESOLUT
 
 STRIDES = [int(cfg.V3_INRESOLUT // n) for n in cfg.V3_GRIDSIZE]
 
-T_SEQ_LABEL = tuple[np.ndarray, np.ndarray, np.ndarray]
+TrainLabel: TypeAlias = tuple[np.ndarray, np.ndarray, np.ndarray]
 
 N_IMG = 40504
 BATCH_COUNT_INIT = 0
@@ -56,10 +59,11 @@ CATEID_MAP = {cateid: sn for sn, cateid, name in cfg.COCO_CATE}
 
 class Yolov3Dataset:
 
-    def __init__(self, batch_size: int = 4):
-        self.batch_size = batch_size
-        self.batch_count = BATCH_COUNT_INIT  # as a counter
-        self.img_rowid = IMG_ROWID_INIT  # image row ID to stat
+    def __init__(self, batch_size: int = 4, mode: str = "train"):
+        self._batch_size = batch_size
+        self._batch_count = BATCH_COUNT_INIT  # as a counter
+        self._img_rowid = IMG_ROWID_INIT  # image row ID to stat
+        self._mode = mode
 
     def __len__(self) -> int:
         return N_IMG
@@ -80,7 +84,7 @@ class Yolov3Dataset:
     def max_iou_index(
         wh: np.ndarray,
         anchors: np.ndarray,
-    ) -> tuple[np.ndarray, ...]:
+    ) -> np.ndarray:
         """Get maximum IoU archors' indices.
 
         Args:
@@ -88,11 +92,7 @@ class Yolov3Dataset:
             anchors (np.ndarray): anchors array of shape [..., 2]
 
         Returns:
-            tuple[np.ndarray, ...]: suppose input `anchors` has a shape of
-            [M1, M2, ..., Mn, 2], the result will be a tuple of `n` 1d arrays.
-            The ith array will correspond to indices of the ith rank of
-            `anchors`, indicating the element which has the largest IoU with
-            the input `wh` box
+            np.ndarray: array of shape N by 2
 
         By comparing a width-height box, get the most similar (i.e. largest
         IoU score) anchors' indices by each of their prier ranks.
@@ -120,13 +120,25 @@ class Yolov3Dataset:
             [0, 2], [1, 0] and [2, 0], format: [scale, measure]
         """
         scores = whbox.iou(wh, anchors)
-        ranks = np.argsort(-scores)  # desending
-        return np.where(ranks == 0)
+        indices_measure = np.argmax(scores, axis=-1)
+        indices_scale = np.array(range(3))
+        return np.stack([indices_scale, indices_measure], axis=1)
+
+    def _row2arr(self, r: Row) -> np.ndarray:
+        xywh = cfg.V3_INRESOLUT * np.array([r.x, r.y, r.w, r.h])
+        return np.concatenate([
+            xywh,
+            np.array([self._batch_count, 1, CATEID_MAP[r.cateid]]),
+        ])
+
+    def eval_label_by_id(self, img_id: int) -> np.ndarray:
+        seq_row = db.dao.labels_by_img_id(img_id)
+        return np.stack([self._row2arr(r) for r in seq_row])
 
     @classmethod
-    def get_label_by_id(cls, img_id: int) -> T_SEQ_LABEL:
-        """Get one label by ID."""
-        # TODO: random noise?
+    def train_label_by_id(cls, img_id: int) -> TrainLabel:
+        """Get for training one label by ID."""
+        # TBD: random noise
         ndim_last_rank = 10
         seq_label = [
             np.zeros((size, size, ANCHORS.shape[1], ndim_last_rank),
@@ -134,12 +146,10 @@ class Yolov3Dataset:
         ]
         seq_row = db.dao.labels_by_img_id(img_id)
         for row in seq_row:
-            indices_scale, indices_measure = cls.max_iou_index(
+            indices = cls.max_iou_index(
                 np.array([row.x, row.y], dtype=np.float32), ANCHORS)
             # 0: small, 1: medium, 2: large
-            for idx_scale, idx_measure in zip(indices_scale,
-                                              indices_measure,
-                                              strict=True):
+            for idx_scale, idx_measure in indices:
                 stride = STRIDES[idx_scale]
                 x, y = row.x * cfg.V3_INRESOLUT, row.y * cfg.V3_INRESOLUT
                 # offset and top-left grid cell width index
@@ -167,39 +177,65 @@ class Yolov3Dataset:
 
         return tuple(seq_label)
 
-    def __next__(self):
-        if self.batch_count >= self.batch_size:
-            self.batch_count = BATCH_COUNT_INIT
+    def _get_img(self, size: int) -> tuple[int, np.ndarray]:
+        row = db.dao.lookup_image_rowid(self._img_rowid)
+        if row is None:
             raise StopIteration
-        if self.img_rowid >= N_IMG:
-            self.img_rowid = IMG_ROWID_INIT
-            self.batch_count = BATCH_COUNT_INIT
+        rgb = self.imgb64_to_rgb(row.data)
+        return (row.imageid,
+                cv2.resize(rgb, (size, size), interpolation=cv2.INTER_AREA))
+
+    def _step_check(self) -> NoReturn:
+        if self._batch_count >= self._batch_size:
+            self._batch_count = BATCH_COUNT_INIT
+            raise StopIteration
+        if self._img_rowid >= N_IMG:
+            self._img_rowid = IMG_ROWID_INIT
+            self._batch_count = BATCH_COUNT_INIT
             raise StopIteration
 
+    def _train_iter(self) -> tuple[np.ndarray, TrainLabel]:
         images, labels_s, labels_m, labels_l = [], [], [], []
         while True:
-            row = db.dao.lookup_image_rowid(self.img_rowid)
-            if row is None:
-                raise StopIteration
-
-            rgb = self.imgb64_to_rgb(row.data)
-            rgb_new = cv2.resize(
-                rgb,
-                (cfg.V3_INRESOLUT, cfg.V3_INRESOLUT),
-                interpolation=cv2.INTER_AREA,
-            )
-            label_s, label_m, label_l = self.get_label_by_id(row.imageid)
-            images += [rgb_new]
+            img_id, rgb_resized = self._get_img(cfg.V3_INRESOLUT)
+            label_s, label_m, label_l = self.train_label_by_id(img_id=img_id)
+            images += [rgb_resized]
             labels_s += [label_s]
             labels_m += [label_m]
             labels_l += [label_l]
 
             # conditions
-            self.batch_count += 1
-            self.img_rowid += 1
-            if self.batch_count >= self.batch_size:
+            self._batch_count += 1
+            self._img_rowid += 1
+            if self._batch_count >= self._batch_size:
                 images_ = np.stack(images)
                 labels_s_ = np.stack(labels_s)
                 labels_m_ = np.stack(labels_m)
                 labels_l_ = np.stack(labels_l)
                 return images_, (labels_s_, labels_m_, labels_l_)
+
+    def _eval_iter(self) -> tuple[np.ndarray, np.ndarray]:
+        images, labels = [], []
+        while True:
+            img_id, rgb_resized = self._get_img(cfg.V3_INRESOLUT)
+            label = self.eval_label_by_id(img_id=img_id)
+            images += [rgb_resized]
+            labels += [label]
+
+            # conditions
+            self._batch_count += 1
+            self._img_rowid += 1
+            if self._batch_count >= self._batch_size:
+                images_ = np.stack(images)
+                labels_ = np.concatenate(labels, axis=0)
+                return images_, labels_
+
+    def __next__(self):
+        self._step_check()
+
+        if self._mode == "train":
+            return self._train_iter()
+        if self._mode == "eval":
+            return self._eval_iter()
+
+        raise NotImplementedError()

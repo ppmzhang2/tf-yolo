@@ -35,10 +35,7 @@ def get_loss(
     lambda_obj: float = 10.0,
     lambda_bgd: float = 1.0,
 ) -> Tensor:
-    """Calculate loss.
-
-    TODO: add lambda coef
-    """
+    """Calculate loss."""
     pred_ = pbox.scaled_bbox(pred)
 
     indices_obj = tf.where(bbox.conf(label, squeezed=True))
@@ -51,6 +48,7 @@ def get_loss(
 
     ious = tf.expand_dims(bbox.iou(prd_obj, lab_obj), axis=-1)
     # background loss
+    # TBD: weight with confidence
     loss_bgd = lambda_bgd * tf.reduce_mean(
         tf.nn.sigmoid_cross_entropy_with_logits(
             labels=bbox.conf(lab_bgd),
@@ -59,6 +57,7 @@ def get_loss(
 
     # object loss
     # label probability should be `1 * IOU` score according to the YOLO paper
+    # TBD: weight with confidence
     loss_obj = lambda_obj * tf.reduce_mean(
         tf.keras.losses.binary_crossentropy(
             y_true=ious * bbox.conf(lab_obj),

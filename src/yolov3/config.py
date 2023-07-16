@@ -151,6 +151,13 @@ class Config:
     YOLOV3CFG = os.path.join(modeldir, "yolov3.cfg")
     YOLOV3WGT = os.path.join(modeldir, "yolov3.weights")
 
+    # model settings
+    C = 3  # number of channels
+    W = 416  # original image width
+    H = 416  # original image height
+    MAX_BOX = 20
+    NMS_TH = 0.7  # nms threshold
+
 
 class TestConfig(Config):
     # pylint: disable=too-few-public-methods

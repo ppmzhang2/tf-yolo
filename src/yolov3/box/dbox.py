@@ -1,81 +1,299 @@
-"""Manipulate diagonal boxes.
+"""Manipulate YXYX bounding boxes.
 
 shape: [..., M], where M >= 6:
     - M = 6 for ground truth label;
-    - M > 6 for model prediction with class logit e.g. M = 86 if N_CLASS = 80
+    - M > 6 for model prediction with class logit e.g. M = 26 if N_CLASS = 20
 
-format: (x_min, y_min, x_max, y_max, [conf], classid, [logit_1, logit_2, ...])
+format: (y_min, x_min, y_max, x_max, objectness score, class ID, [logits, ...])
 """
-import cv2
-import numpy as np
 import tensorflow as tf
 
 from yolov3 import cfg
-from yolov3.types import TensorArr
-
-BOX_COLOR = (255, 0, 0)  # Red
-BOX_THICKNESS = 1  # an integer
-BOX_FONTSCALE = 0.35  # a float
-TXT_COLOR = (255, 255, 255)  # White
-TXT_THICKNESS = 1
-FONTFACE = cv2.FONT_HERSHEY_SIMPLEX
-FONTSCALE = 0.35
-
-# from predicted class serial number to class name
-CATE_MAP = {sn: name for sn, _, name in cfg.COCO_CATE}
+from yolov3.types import TensorT
 
 
-def pmax(dbox: TensorArr) -> TensorArr:
-    """Get bottom-right point from a diagonal box."""
-    return dbox[..., 2:4]
+def xmin(bbox: TensorT) -> TensorT:
+    """Get top-left x coordinate of each anchor box.
+
+    Args:
+        bbox (TensorT): Bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: X-min tensor of shape (N1, N2, ..., Nk)
+    """
+    return bbox[..., 1]
 
 
-def pmin(dbox: TensorArr) -> TensorArr:
-    """Get top-left point from a diagonal box."""
-    return dbox[..., 0:2]
+def ymin(bbox: TensorT) -> TensorT:
+    """Get top-left y coordinate of each anchor box.
+
+    Args:
+        bbox (TensorT): Bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: Y-min tensor of shape (N1, N2, ..., Nk)
+    """
+    return bbox[..., 0]
 
 
-def interarea(dbox_pred: TensorArr, dbox_label: TensorArr) -> TensorArr:
-    """Get intersection area of two Diagonal boxes."""
-    left_ups = tf.maximum(pmin(dbox_pred), pmin(dbox_label))
-    right_downs = tf.minimum(pmax(dbox_pred), pmax(dbox_label))
+def xmax(bbox: TensorT) -> TensorT:
+    """Get bottom-right x coordinate of each anchor box.
 
-    inter = tf.maximum(tf.subtract(right_downs, left_ups), 0.0)
+    Args:
+        bbox (TensorT): Bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: X-max tensor of shape (N1, N2, ..., Nk)
+    """
+    return bbox[..., 3]
+
+
+def ymax(bbox: TensorT) -> TensorT:
+    """Get bottom-right y coordinate of each anchor box.
+
+    Args:
+        bbox (TensorT): Bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: Y-max tensor of shape (N1, N2, ..., Nk)
+    """
+    return bbox[..., 2]
+
+
+def rem(bbox: TensorT) -> TensorT:
+    """Get remainders (excluding YXYX) of each anchor box.
+
+    Args:
+        bbox (TensorT): Bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: remainder tensor of shape (N1, N2, ..., Nk, C - 4)
+    """
+    return bbox[..., 4:]
+
+
+def w(bbox: TensorT) -> TensorT:
+    """Get width of each anchor box.
+
+    Args:
+        bbox (TensorT): Bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: width tensor of shape (N1, N2, ..., Nk)
+    """
+    return xmax(bbox) - xmin(bbox)
+
+
+def h(bbox: TensorT) -> TensorT:
+    """Get height of each anchor box.
+
+    Args:
+        bbox (TensorT): Bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: height tensor of shape (N1, N2, ..., Nk)
+    """
+    return ymax(bbox) - ymin(bbox)
+
+
+def xctr(bbox: TensorT) -> TensorT:
+    """Get center x coordinate of each anchor box.
+
+    Args:
+        bbox (TensorT): Bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: X-center tensor of shape (N1, N2, ..., Nk)
+    """
+    return xmin(bbox) + 0.5 * w(bbox)
+
+
+def yctr(bbox: TensorT) -> TensorT:
+    """Get center y coordinate of each anchor box.
+
+    Args:
+        bbox (TensorT): Bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: Y-center tensor of shape (N1, N2, ..., Nk)
+    """
+    return ymin(bbox) + 0.5 * h(bbox)
+
+
+def area(bbox: TensorT) -> TensorT:
+    """Get area of the anchor box.
+
+    Args:
+        bbox (TensorT): Bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: area tensor of shape (N1, N2, ..., Nk)
+    """
+    return h(bbox) * w(bbox)
+
+
+def pmax(bbox: TensorT) -> TensorT:
+    """Get bottom-right point from each anchor box.
+
+    Args:
+        bbox (TensorT): bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: YX-max tensor of shape (N1, N2, ..., Nk, 2)
+    """
+    return bbox[..., 2:4]
+
+
+def pmin(bbox: TensorT) -> TensorT:
+    """Get top-left point from each anchor box.
+
+    Args:
+        bbox (TensorT): bounding box tensor of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: YX-min tensor of shape (N1, N2, ..., Nk, 2)
+    """
+    return bbox[..., 0:2]
+
+
+def confnd(bbox: TensorT) -> TensorT:
+    """Get object confidence from an anchor box (un-squeezed).
+
+    Suppose the number of ranks of the input tensor is R, the #rank of the
+    output tensor will be R - 1 is `squeezed`.
+    Otherwise the #rank of the output will remain as R, and the last
+    rank contains only 1 dimension
+
+    Args:
+        bbox (TensorT): anchor box of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: object confidence tensor of shape (N1, N2, ..., Nk, 1)
+    """
+    return bbox[..., 4:5]
+
+
+def conf1d(bbox: TensorT) -> TensorT:
+    """Get object confidence from an anchor box (squeezed).
+
+    Suppose the number of ranks of the input tensor is R, the #rank of the
+    output tensor will be R - 1 is `squeezed`.
+    Otherwise the #rank of the output will remain as R, and the last
+    rank contains only 1 dimension
+
+    Args:
+        bbox (TensorT): anchor box of shape (N1, N2, ..., Nk, C)
+
+    Returns:
+        TensorT: object confidence tensor of shape (N1, N2, ..., Nk)
+    """
+    return bbox[..., 4]
+
+
+def interarea(bbox_prd: tf.Tensor, bbox_lbl: tf.Tensor) -> tf.Tensor:
+    """Get intersection area of two sets of anchor boxes.
+
+    Args:
+        bbox_prd (tf.Tensor): predicted bounding box tensor of shape
+            (N1, N2, ..., Nk, C)
+        bbox_lbl (tf.Tensor): label bounding box tensor of shape
+            (N1, N2, ..., Nk, C)
+
+    Returns:
+        tf.Tensor: intersection area tensor of shape (N1, N2, ..., Nk)
+    """
+    left_ups = tf.maximum(pmin(bbox_prd), pmin(bbox_lbl))
+    right_downs = tf.minimum(pmax(bbox_prd), pmax(bbox_lbl))
+
+    inter = tf.maximum(right_downs - left_ups, 0.0)
     return tf.multiply(inter[..., 0], inter[..., 1])
 
 
-def img_add_box(img: np.ndarray, dboxes: TensorArr) -> np.ndarray:
-    """Add bounding boxes to an image array.
-
-    TODO: add confidence
+def iou(bbox_prd: tf.Tensor, bbox_lbl: tf.Tensor) -> tf.Tensor:
+    """Calculate IoU of two bounding boxes.
 
     Args:
-        img (np.ndarray): image NumPy array
-        dboxes (TfArrayT): diagonal boxes array of shape (N_BOX, 5)
+        bbox_prd (tf.Tensor): predicted bounding box tensor of shape
+            (N1, N2, ..., Nk, C)
+        bbox_lbl (tf.Tensor): label bounding box tensor of shape
+            (N1, N2, ..., Nk, C)
 
     Returns:
-        np.ndarray: image NumPy array with bounding boxes added
+        tf.Tensor: IoU tensor of shape (N1, N2, ..., Nk)
     """
-    for dbox in (dboxes.astype(np.int32) if isinstance(dboxes, np.ndarray) else
-                 dboxes.numpy().astype(np.int32)):
-        x_min, y_min, x_max, y_max, _, cls_id = dbox
-        class_name = CATE_MAP[int(cls_id)]
-        cv2.rectangle(img, (x_min, y_min), (x_max, y_max),
-                      color=BOX_COLOR,
-                      thickness=BOX_THICKNESS)
+    area_pred = area(bbox_prd)
+    area_label = area(bbox_lbl)
+    area_inter = interarea(bbox_prd, bbox_lbl)
+    area_union = area_pred + area_label - area_inter
+    return (area_inter + cfg.EPS) / (area_union + cfg.EPS)
 
-        (text_width, text_height), _ = cv2.getTextSize(class_name, FONTFACE,
-                                                       FONTSCALE,
-                                                       TXT_THICKNESS)
-        cv2.rectangle(img, (x_min, y_min - int(1.3 * text_height)),
-                      (x_min + text_width, y_min), BOX_COLOR, -1)
-        cv2.putText(
-            img,
-            text=class_name,
-            org=(x_min, y_min - int(0.3 * text_height)),
-            fontFace=FONTFACE,
-            fontScale=FONTSCALE,
-            color=TXT_COLOR,
-            lineType=cv2.LINE_AA,
-        )
-    return img
+
+def iou_mat(bbox_prd: tf.Tensor, bbox_lbl: tf.Tensor) -> tf.Tensor:
+    """Calculate IoU matrix of two sets of bounding boxes.
+
+    Args:
+        bbox_prd (tf.Tensor): predicted bounding boxes of shape (N1, C)
+        bbox_lbl (tf.Tensor): ground truth bounding boxes of shape (N2, C)
+
+    Returns:
+        tf.Tensor: IoU tensor of shape (N1, N2)
+    """
+    n1, n2 = tf.shape(bbox_prd)[0], tf.shape(bbox_lbl)[0]
+    bbox_prd_ = tf.tile(tf.expand_dims(bbox_prd, axis=1), [1, n2, 1])
+    bbox_lbl_ = tf.tile(tf.expand_dims(bbox_lbl, axis=0), [n1, 1, 1])
+    return iou(bbox_prd_, bbox_lbl_)
+
+
+def from_xywh(xywh: tf.Tensor) -> tf.Tensor:
+    """Convert bounding box from (x, y, w, h) to (ymin, xmin, ymax, xmax).
+
+    Args:
+        xywh (tf.Tensor): bounding box tensor (XYWH) of shape
+            (N1, N2, ..., Nk, C) where C >= 4
+
+    Returns:
+        tf.Tensor: bounding box tensor (YXYX) of shape (N1, N2, ..., Nk, C)
+    """
+    x_, y_, w_, h_, rem_ = (xywh[..., 0], xywh[..., 1], xywh[..., 2],
+                            xywh[..., 3], xywh[..., 4:])
+    xmin_ = x_ - 0.5 * w_
+    ymin_ = y_ - 0.5 * h_
+    xmax_ = x_ + 0.5 * w_
+    ymax_ = y_ + 0.5 * h_
+    yxyx = tf.stack([ymin_, xmin_, ymax_, xmax_], axis=-1)
+    return tf.concat([yxyx, rem_], axis=-1)
+
+
+def to_xywh(bbox: tf.Tensor) -> tf.Tensor:
+    """Convert bounding box from (ymin, xmin, ymax, xmax) to (x, y, w, h).
+
+    Args:
+        bbox (tf.Tensor): bounding box tensor (YXYX) of shape
+            (N1, N2, ..., Nk, C) where C >= 4
+
+    Returns:
+        tf.Tensor: bounding box tensor (XYWH) of shape (N1, N2, ..., Nk, C)
+    """
+    xywh = tf.stack([xctr(bbox), yctr(bbox), w(bbox), h(bbox)], axis=-1)
+    return tf.concat([xywh, rem(bbox)], axis=-1)
+
+
+def clip(bbox: tf.Tensor, h: float, w: float) -> tf.Tensor:
+    """Clip bounding box to a given image shape.
+
+    Args:
+        bbox (tf.Tensor): bounding box tensor (YXYX) of shape
+            (N1, N2, ..., Nk, C) where C >= 4
+        h (float): image height
+        w (float): image width
+
+    Returns:
+        tf.Tensor: clipped bounding box tensor (YXYX) of shape
+            (N1, N2, ..., Nk, C)
+    """
+    ymin_ = tf.clip_by_value(ymin(bbox), 0.0, h)
+    xmin_ = tf.clip_by_value(xmin(bbox), 0.0, w)
+    ymax_ = tf.clip_by_value(ymax(bbox), 0.0, h)
+    xmax_ = tf.clip_by_value(xmax(bbox), 0.0, w)
+    yxyx = tf.stack([ymin_, xmin_, ymax_, xmax_], axis=-1)
+    return tf.concat([yxyx, rem(bbox)], axis=-1)

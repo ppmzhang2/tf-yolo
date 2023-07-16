@@ -3,14 +3,14 @@ from typing import NoReturn
 
 import click
 
-from .serv import coco_annot_to_csv
-from .serv import create_yolo_labels
-from .serv import load_coco_annot_csv
-from .serv import load_darknet_yolov3
-from .serv import sqlite_create_all
-from .serv import sqlite_drop_all
-from .serv import train_yolov3
-from .serv import update_img_data
+from yolov3.serv import coco_annot_to_csv
+from yolov3.serv import create_yolo_labels
+from yolov3.serv import load_coco_annot_csv
+from yolov3.serv import load_darknet_yolov3
+from yolov3.serv import sqlite_create_all
+from yolov3.serv import sqlite_drop_all
+from yolov3.serv import train_yolov3
+from yolov3.serv import update_img_data
 
 
 @click.group()

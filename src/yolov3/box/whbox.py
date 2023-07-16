@@ -1,8 +1,8 @@
 """Manipulate width-height boxes."""
 import numpy as np
 
-from .. import cfg
-from ..types import TensorArr
+from yolov3 import cfg
+from yolov3.types import TensorArr
 
 __all__ = ["iou"]
 

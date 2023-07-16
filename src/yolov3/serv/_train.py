@@ -2,9 +2,9 @@ from typing import NoReturn
 
 import click
 
-from ..datasets import Yolov3Dataset
-from ..loss import trainer
-from ..model import model_factory
+from yolov3.datasets import Yolov3Dataset
+from yolov3.loss import trainer
+from yolov3.model import model_factory
 
 
 @click.command()

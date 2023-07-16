@@ -7,10 +7,10 @@ format: (x, y, w, h, conf_logit, class_logit_1, class_logit_2, ...)
 import numpy as np
 import tensorflow as tf
 
-from .. import cfg
-from ..datasets.utils import onecold_cate_sn
-from ..types import Tensor
-from ..types import TensorArr
+from yolov3 import cfg
+from yolov3.datasets.utils import onecold_cate_sn
+from yolov3.types import Tensor
+from yolov3.types import TensorArr
 
 STRIDE_MAP = {scale: cfg.V3_INRESOLUT // scale for scale in cfg.V3_GRIDSIZE}
 

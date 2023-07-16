@@ -1,7 +1,7 @@
 """Project init."""
 import os
 
-from . import config
+from yolov3 import config
 
 env = os.getenv("ENV", "test")
 

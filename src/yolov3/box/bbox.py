@@ -19,10 +19,10 @@ import math
 
 import tensorflow as tf
 
-from .. import cfg
-from ..types import Tensor
-from ..types import TensorArr
-from . import dbox
+from yolov3 import cfg
+from yolov3.box import dbox
+from yolov3.types import Tensor
+from yolov3.types import TensorArr
 
 
 def xy(bbox: TensorArr) -> TensorArr:

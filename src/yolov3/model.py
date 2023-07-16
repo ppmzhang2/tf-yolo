@@ -1,9 +1,9 @@
 """Models."""
 import tensorflow as tf
 
-from . import cfg
-from .types import Tensor
-from .types import TensorArr
+from yolov3 import cfg
+from yolov3.types import Tensor
+from yolov3.types import TensorArr
 
 ALPHA = 0.1
 

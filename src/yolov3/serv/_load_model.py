@@ -3,9 +3,9 @@ from typing import NoReturn
 import click
 import cv2
 
-from .. import cfg
-from ..loader import load_weight_cv2
-from ..model import model_factory
+from yolov3 import cfg
+from yolov3.loader import load_weight_cv2
+from yolov3.model import model_factory
 
 
 @click.command()

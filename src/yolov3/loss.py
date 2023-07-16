@@ -6,11 +6,11 @@ from typing import NoReturn
 import numpy as np
 import tensorflow as tf
 
-from . import cfg
-from .box import bbox
-from .box import pbox
-from .datasets.utils import onehot_cate_sn
-from .types import Tensor
+from yolov3 import cfg
+from yolov3.box import bbox
+from yolov3.box import pbox
+from yolov3.datasets.utils import onehot_cate_sn
+from yolov3.types import Tensor
 
 LOGGER = logging.getLogger(__name__)
 

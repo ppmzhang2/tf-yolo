@@ -10,8 +10,8 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
-from .. import cfg
-from ..types import TensorArr
+from yolov3 import cfg
+from yolov3.types import TensorArr
 
 BOX_COLOR = (255, 0, 0)  # Red
 BOX_THICKNESS = 1  # an integer

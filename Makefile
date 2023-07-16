@@ -9,12 +9,10 @@ clean:
 	find . -name __pycache__ -delete
 	find . -name '*~' -delete
 	find . -name .coverage -delete
-	find . -name '.coverage.*' -delete
-	find . -name 'codeclimate.*' -delete
+	find . -name 'coverage.*' -delete
 	find . -name 'requirements*.txt' -delete
-	find . -name 'report.html' -delete
-	find . -name cov.xml -delete
 	find . -type d -name .pytest_cache -exec rm -r {} +
+	find . -type d -name .ruff_cache -exec rm -r {} +
 	find . -type d -name .mypy_cache -exec rm -r {} +
 
 .PHONY: install-pdm
@@ -28,32 +26,30 @@ install-pdm:
 update-lock:
 	pdm update --no-sync
 
-.PHONY: deploy-dev
-## deploy dev environment
-deploy-dev:
-	pdm sync -G dev -G repl --clean
+.PHONY: deploy-dev-x86
+## deploy x86 dev environment
+deploy-dev-x86:
+	pdm sync -G dev -G repl -G x86 --clean
+
+.PHONY: deploy-dev-osx
+## deploy OSX dev environment
+deploy-dev-osx:
+	pdm sync -G dev -G repl -G osx --clean
 
 .PHONY: format
 ## isort and yapf formatting
 format:
-	pdm run isort src tests
-	pdm run yapf -i -r src tests
+	isort src tests
+	yapf -i -r src tests
 
 .PHONY: lint
 ## pylint check
 lint:
-	pdm run pylint --rcfile=.pylintrc \
-	    --exit-zero \
-	    --msg-template='{path}:{line}:{column}:**[{msg_id}]** ({category}, {symbol})<br>{msg}' \
-	    --output-format=parseable src tests
-
-.PHONY: lint-type
-## type checking linter with mypy
-lint-type:
-	pdm run mypy
+	ruff check src/yolov3 --show-source --show-fixes \
+	    --exit-zero
 
 .PHONY: test
 test:
-	PYTHONPATH=./src \
-	    pdm run pytest -s -v --cov=app --cov-config=pyproject.toml \
+	PYTHONPATH=. \
+	    pytest -s -v --cov=app --cov-config=pyproject.toml \
 	    > coverage.txt
